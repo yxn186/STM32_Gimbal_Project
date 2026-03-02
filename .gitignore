@@ -1,0 +1,33 @@
+#260204的版本
+
+# 忽略编译生成的文件夹和文件
+/build/
+/Debug/
+/Release/
+/*.bin
+/*.elf
+/*.hex
+*.a
+*.o
+
+# 忽略 STM32CubeMX 配置文件
+*.mxproject
+
+# 忽略 STM32CubeMX 临时文件
+*.mx.scratch
+
+
+# 忽略 CMake 配置文件
+CMakeCache.txt
+CMakeFiles/
+Makefile
+
+# 忽略 IDE 配置文件（但保留 .settings）
+.vscode/
+.idea/
+.settings/    # 如果希望共享 .settings 文件夹，请保留这一行
+
+# 忽略其他临时文件和日志
+*.log
+*.swp
+*.bak
