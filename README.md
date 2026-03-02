@@ -1,4 +1,4 @@
-# STM32_HAL_Projects
+# STM32_GIMBAL_Projects
 Learning the STM32HAL
 
 
