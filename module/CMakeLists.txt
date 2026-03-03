@@ -1,9 +1,13 @@
 cmake_minimum_required(VERSION 3.22)
 
+option(OLED_USE_DMA_BACKEND "Use DMA backend for OLED driver" ON)
+
 file(GLOB_RECURSE MOD_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_LIST_DIR}/*.c
     ${CMAKE_CURRENT_LIST_DIR}/*.cpp
 )
+
+
 
 if(MOD_SOURCES)
     add_library(module STATIC ${MOD_SOURCES})
@@ -20,3 +24,5 @@ target_link_libraries(module PUBLIC
     project_includes
     stm32cubemx
 )
+
+
