@@ -16,9 +16,6 @@
 Struct_SPI_Manage_Object SPI1_Manage_Object = {nullptr};
 Struct_SPI_Manage_Object SPI2_Manage_Object = {nullptr};
 Struct_SPI_Manage_Object SPI3_Manage_Object = {nullptr};
-Struct_SPI_Manage_Object SPI4_Manage_Object = {nullptr};
-Struct_SPI_Manage_Object SPI5_Manage_Object = {nullptr};
-Struct_SPI_Manage_Object SPI6_Manage_Object = {nullptr};
 
 /* Private function declarations ---------------------------------------------*/
 
