@@ -35,14 +35,14 @@ typedef void (*UART_Call_Back)(uint8_t *Buffer, uint16_t Length);
 /**
  * @brief UART通信处理结构体
  */
-struct Struct_UART_Manage_Object
+typedef struct
 {
     UART_HandleTypeDef *UART_Handler;
     uint8_t Tx_Buffer[UART_BUFFER_SIZE];
     uint8_t Rx_Buffer[UART_BUFFER_SIZE];
     uint16_t Rx_Buffer_Length;
     UART_Call_Back Callback_Function;
-};
+}Struct_UART_Manage_Object;
 
 
 /* Exported variables --------------------------------------------------------*/
