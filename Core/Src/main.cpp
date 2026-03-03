@@ -99,7 +99,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   JOLED_Init();
   JOLED_ShowString(2, 1, "ok");
-  Serial_Init();
+  Serial_Init(&huart1);
   app_bmi088_init();
   /* USER CODE END 2 */
 

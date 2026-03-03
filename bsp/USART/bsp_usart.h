@@ -17,7 +17,6 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
 /*YOUR CODE*/
 /* Exported macros -----------------------------------------------------------*/
 
@@ -27,10 +26,16 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 
 /**
+ * @brief UART通信发送回调函数数据类型
+ *
+ */
+typedef void (*UART_Tx_Call_Back)(UART_HandleTypeDef *huart);
+
+/**
  * @brief UART通信接收回调函数数据类型
  *
  */
-typedef void (*UART_Call_Back)(uint8_t *Buffer, uint16_t Length);
+typedef void (*UART_Rx_Call_Back)(uint8_t *Buffer, uint16_t Length);
 
 /**
  * @brief UART通信处理结构体
@@ -41,13 +46,13 @@ typedef struct
     uint8_t Tx_Buffer[UART_BUFFER_SIZE];
     uint8_t Rx_Buffer[UART_BUFFER_SIZE];
     uint16_t Rx_Buffer_Length;
-    UART_Call_Back Callback_Function;
+    UART_Tx_Call_Back Tx_Callback_Function;
+    UART_Rx_Call_Back Rx_Callback_Function;
 }Struct_UART_Manage_Object;
 
 
 /* Exported variables --------------------------------------------------------*/
 
-extern bool init_finished;
 
 extern Struct_UART_Manage_Object UART1_Manage_Object;
 extern Struct_UART_Manage_Object UART2_Manage_Object;
@@ -65,7 +70,7 @@ extern Struct_UART_Manage_Object UART6_Manage_Object;
  * @param Callback_Function 处理回调函数
  * @param Rx_Buffer_Length 接收缓冲区长度
  */
-void UART_Init(UART_HandleTypeDef *huart, UART_Call_Back Callback_Function, uint16_t Rx_Buffer_Length);
+void UART_Init(UART_HandleTypeDef *huart, UART_Tx_Call_Back Tx_Callback_Function, UART_Rx_Call_Back Rx_Callback_Function, uint16_t Rx_Buffer_Length);
 
 /**
  * @brief 掉线重新初始化UART
