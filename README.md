@@ -1,5 +1,5 @@
 # STM32_GIMBAL_Projects
-Learning the STM32HAL
+Learning the STM32HAL ing..
 
 
 
@@ -9,9 +9,9 @@ Learning the STM32HAL
 
  `main` 分支作为基础分支 已经拥有支持开发的一切基础配置（OLED配置等）
 
-以及拥有所需要的各种模块的.c/.h 都存放在`User`文件夹内
+以及拥有所需要的各种模块的.c/.h 都存放在`Usercode`文件夹内
 
-**所有自己的模块都要在`User`文件夹内！！！**
+**所有自己的模块都要在`Usercode`文件夹内！！！**
 
 ## 2. **创建/切换新的模块分支**
 
@@ -251,7 +251,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Set the project name
-set(CMAKE_PROJECT_NAME Project)
+set(CMAKE_PROJECT_NAME F405RGT6Project)
 
 # Enable compile command to ease indexing with e.g. clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
@@ -261,6 +261,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 project(${CMAKE_PROJECT_NAME} LANGUAGES C CXX ASM)
 # <<<
 message("Build type: " ${CMAKE_BUILD_TYPE})
+
+# Enable CMake support for ASM and C languages
+enable_language(C ASM)
 
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
@@ -300,9 +303,9 @@ endfunction()
 
 add_library(project_includes INTERFACE)
 
-collect_header_dirs(BSP_HDR_DIRS  "${CMAKE_SOURCE_DIR}/bsp")
-collect_header_dirs(MOD_HDR_DIRS  "${CMAKE_SOURCE_DIR}/module")
-collect_header_dirs(APP_HDR_DIRS  "${CMAKE_SOURCE_DIR}/application")
+collect_header_dirs(BSP_HDR_DIRS  "${CMAKE_SOURCE_DIR}/Usercode//1_bsp")
+collect_header_dirs(MOD_HDR_DIRS  "${CMAKE_SOURCE_DIR}/Usercode//2_module")
+collect_header_dirs(APP_HDR_DIRS  "${CMAKE_SOURCE_DIR}/Usercode//3_application")
 
 target_include_directories(project_includes INTERFACE
     ${BSP_HDR_DIRS}
@@ -312,9 +315,9 @@ target_include_directories(project_includes INTERFACE
 # ---------------------------------------------------------------------------
 
 # Add layered libraries
-add_subdirectory(bsp)
-add_subdirectory(module)
-add_subdirectory(application)
+add_subdirectory(Usercode/1_bsp)
+add_subdirectory(Usercode/2_module)
+add_subdirectory(Usercode/3_application)
 
 # Link directories setup
 target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
@@ -355,9 +358,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
     # Add user defined libraries
 )
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=soft")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -u _printf_float")
-
 ```
 
 
