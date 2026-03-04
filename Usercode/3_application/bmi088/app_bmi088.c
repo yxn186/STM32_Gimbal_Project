@@ -275,11 +275,11 @@ void app_bmi088_loop(void)
             }
         }
         
-        if(HAL_GetTick() - last_time3 >= 100)
+        if(HAL_GetTick() - last_time3 >= 15)
         {
             Serial_Printf("now get %d effective samples\r\n", bmi088_getbiascalibration_current_samples_effective());
            
-            Serial_Printf("speed %.2f samples/sec\r\n", (float)(bmi088_getbiascalibration_current_samples()  / ((float)(HAL_GetTick() - last_time4)/1000.0f)));   
+            Serial_Printf("speed: %.2f samples/s\r\n", (float)(bmi088_getbiascalibration_current_samples()  / ((float)(HAL_GetTick() - last_time4)/1000.0f)));   
 
             Serial_Printf("processing... %.2f %%\r\n", (float)bmi088_getbiascalibration_current_samples_effective()/(float)bmi088_getbiascalibration_target_samples()*100.0f);
             

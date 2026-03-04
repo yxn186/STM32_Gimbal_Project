@@ -7,23 +7,23 @@
 
 /* ======================== I2C/DMA route config ======================== */
 #ifndef OLED_I2C_HANDLE
-#define OLED_I2C_HANDLE hi2c1
+#define OLED_I2C_HANDLE hi2c2
 #endif
 
 #ifndef OLED_I2C_DMA_RX_STREAM
-#define OLED_I2C_DMA_RX_STREAM DMA1_Stream0
+#define OLED_I2C_DMA_RX_STREAM DMA1_Stream2
 #endif
 
 #ifndef OLED_I2C_DMA_TX_STREAM
-#define OLED_I2C_DMA_TX_STREAM DMA1_Stream6
+#define OLED_I2C_DMA_TX_STREAM DMA1_Stream7
 #endif
 
 #ifndef OLED_I2C_DMA_RX_CHANNEL
-#define OLED_I2C_DMA_RX_CHANNEL DMA_CHANNEL_1
+#define OLED_I2C_DMA_RX_CHANNEL DMA_CHANNEL_7
 #endif
 
 #ifndef OLED_I2C_DMA_TX_CHANNEL
-#define OLED_I2C_DMA_TX_CHANNEL DMA_CHANNEL_1
+#define OLED_I2C_DMA_TX_CHANNEL DMA_CHANNEL_7
 #endif
 typedef enum {
   OLED_COLOR_NORMAL = 0, // 正常模式 黑底白字
