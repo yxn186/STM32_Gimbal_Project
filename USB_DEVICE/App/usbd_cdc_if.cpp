@@ -7,7 +7,7 @@
   ******************************************************************************
   * @attention
   *
-  * Copyright (c) 2026 STMicroelectronics.
+  * Copyright (c) 2025 STMicroelectronics.
   * All rights reserved.
   *
   * This software is licensed under terms that can be found in the LICENSE file
@@ -23,6 +23,8 @@
 
 /* USER CODE BEGIN INCLUDE */
 
+#include "bsp_usb.h"
+
 /* USER CODE END INCLUDE */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -30,6 +32,7 @@
 /* Private macro -------------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
@@ -85,6 +88,7 @@
   * @brief Private variables.
   * @{
   */
+
 /* Create buffer for reception and transmission           */
 /* It's up to user to redefine and/or remove those define */
 /** Received data over USB are stored in this buffer      */
@@ -145,29 +149,31 @@ USBD_CDC_ItfTypeDef USBD_Interface_fops_FS =
 };
 
 /* Private functions ---------------------------------------------------------*/
+
 /**
-  * @brief  Initializes the CDC media low layer over the FS USB IP
+  * @brief  Initializes the CDC media low layer over the USB FS IP
   * @retval USBD_OK if all operations are OK else USBD_FAIL
   */
 static int8_t CDC_Init_FS(void)
 {
-  /* USER CODE BEGIN 3 */
+  /* USER CODE BEGIN 8 */
   /* Set Application Buffers */
   USBD_CDC_SetTxBuffer(&hUsbDeviceFS, UserTxBufferFS, 0);
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, UserRxBufferFS);
   return (USBD_OK);
-  /* USER CODE END 3 */
+  /* USER CODE END 8 */
 }
 
 /**
   * @brief  DeInitializes the CDC media low layer
+  * @param  None
   * @retval USBD_OK if all operations are OK else USBD_FAIL
   */
 static int8_t CDC_DeInit_FS(void)
 {
-  /* USER CODE BEGIN 4 */
+  /* USER CODE BEGIN 9 */
   return (USBD_OK);
-  /* USER CODE END 4 */
+  /* USER CODE END 9 */
 }
 
 /**
@@ -179,26 +185,26 @@ static int8_t CDC_DeInit_FS(void)
   */
 static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 {
-  /* USER CODE BEGIN 5 */
+  /* USER CODE BEGIN 10 */
   switch(cmd)
   {
-    case CDC_SEND_ENCAPSULATED_COMMAND:
+  case CDC_SEND_ENCAPSULATED_COMMAND:
 
     break;
 
-    case CDC_GET_ENCAPSULATED_RESPONSE:
+  case CDC_GET_ENCAPSULATED_RESPONSE:
 
     break;
 
-    case CDC_SET_COMM_FEATURE:
+  case CDC_SET_COMM_FEATURE:
 
     break;
 
-    case CDC_GET_COMM_FEATURE:
+  case CDC_GET_COMM_FEATURE:
 
     break;
 
-    case CDC_CLEAR_COMM_FEATURE:
+  case CDC_CLEAR_COMM_FEATURE:
 
     break;
 
@@ -219,19 +225,19 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
   /*                                        4 - Space                            */
   /* 6      | bDataBits  |   1   | Number Data bits (5, 6, 7, 8 or 16).          */
   /*******************************************************************************/
-    case CDC_SET_LINE_CODING:
+  case CDC_SET_LINE_CODING:
 
     break;
 
-    case CDC_GET_LINE_CODING:
+  case CDC_GET_LINE_CODING:
 
     break;
 
-    case CDC_SET_CONTROL_LINE_STATE:
+  case CDC_SET_CONTROL_LINE_STATE:
 
     break;
 
-    case CDC_SEND_BREAK:
+  case CDC_SEND_BREAK:
 
     break;
 
@@ -240,11 +246,11 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
   }
 
   return (USBD_OK);
-  /* USER CODE END 5 */
+  /* USER CODE END 10 */
 }
 
 /**
-  * @brief  Data received over USB OUT endpoint are sent over CDC interface
+  * @brief Data received over USB OUT endpoint are sent over CDC interface
   *         through this function.
   *
   *         @note
@@ -256,43 +262,36 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
   *
   * @param  Buf: Buffer of data to be received
   * @param  Len: Number of data received (in bytes)
-  * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
+  * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAILL
   */
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
-  /* USER CODE BEGIN 6 */
+  /* USER CODE BEGIN 11 */
 
-  //怎么收怎么发
-  CDC_Transmit_FS(Buf, *Len);
+  USB_ReceiveCallback(*Len);
 
-  USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
-  USBD_CDC_ReceivePacket(&hUsbDeviceFS);
   return (USBD_OK);
-  /* USER CODE END 6 */
+  /* USER CODE END 11 */
 }
 
 /**
-  * @brief  CDC_Transmit_FS
-  *         Data to send over USB IN endpoint are sent over CDC interface
+  * @brief  Data to send over USB IN endpoint are sent over CDC interface
   *         through this function.
-  *         @note
-  *
-  *
   * @param  Buf: Buffer of data to be sent
   * @param  Len: Number of data to be sent (in bytes)
-  * @retval USBD_OK if all operations are OK else USBD_FAIL or USBD_BUSY
+  * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL or USBD_BUSY
   */
 uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
 {
   uint8_t result = USBD_OK;
-  /* USER CODE BEGIN 7 */
+  /* USER CODE BEGIN 12 */
   USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)hUsbDeviceFS.pClassData;
   if (hcdc->TxState != 0){
     return USBD_BUSY;
   }
   USBD_CDC_SetTxBuffer(&hUsbDeviceFS, Buf, Len);
   result = USBD_CDC_TransmitPacket(&hUsbDeviceFS);
-  /* USER CODE END 7 */
+  /* USER CODE END 12 */
   return result;
 }
 
@@ -311,11 +310,11 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
 static int8_t CDC_TransmitCplt_FS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
 {
   uint8_t result = USBD_OK;
-  /* USER CODE BEGIN 13 */
+  /* USER CODE BEGIN 14 */
   UNUSED(Buf);
   UNUSED(Len);
   UNUSED(epnum);
-  /* USER CODE END 13 */
+  /* USER CODE END 14 */
   return result;
 }
 

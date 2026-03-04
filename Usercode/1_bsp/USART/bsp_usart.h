@@ -17,6 +17,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "stdbool.h"
 /*YOUR CODE*/
 /* Exported macros -----------------------------------------------------------*/
 
@@ -24,6 +25,7 @@ extern "C" {
 #define UART_BUFFER_SIZE 512
 
 /* Exported types ------------------------------------------------------------*/
+extern bool init_finished;
 
 /**
  * @brief UART通信发送回调函数数据类型

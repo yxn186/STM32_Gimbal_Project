@@ -17,8 +17,21 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "bsp_usb.h"
+#include "Serial.h"
 
 /*YOUR CODE*/
+extern bool init_finished;
+
+#ifndef STM32_PRINTF_USE_USB
+#define STM32_PRINTF_USE_USB 0
+#endif
+
+#if STM32_PRINTF_USE_USB
+#define STM32_Printf(...) USB_Printf(__VA_ARGS__)
+#else
+#define STM32_Printf(...) Serial_Printf(__VA_ARGS__)
+#endif
 
 void gimbal_task_init(void);
 void gimbal_task_loop(void);

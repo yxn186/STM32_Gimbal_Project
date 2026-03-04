@@ -48,6 +48,14 @@ set_source_files_properties(${MX_MAIN_C} PROPERTIES
     GENERATED TRUE
     HEADER_FILE_ONLY TRUE
 )
+
+# Keep only usbd_cdc_if.cpp: ignore CubeMX-referenced usbd_cdc_if.c
+# MUST be placed before add_subdirectory(cmake/stm32cubemx)
+set(MX_USBD_CDC_IF_C ${CMAKE_SOURCE_DIR}/USB_DEVICE/App/usbd_cdc_if.c)
+set_source_files_properties(${MX_USBD_CDC_IF_C} PROPERTIES
+    GENERATED TRUE
+    HEADER_FILE_ONLY TRUE
+)
 # ---------------------------------------------------------------------------
 
 # Add STM32CubeMX generated sources
@@ -99,6 +107,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Core/Src/main.cpp
+    ${CMAKE_SOURCE_DIR}/USB_DEVICE/App/usbd_cdc_if.cpp
 )
 
 # Add include paths

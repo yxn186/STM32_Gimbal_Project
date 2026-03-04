@@ -22,7 +22,6 @@
 #include "dma.h"
 #include "i2c.h"
 #include "spi.h"
-#include "stm32f4xx_hal.h"
 #include "usart.h"
 #include "usb_device.h"
 #include "gpio.h"
@@ -30,7 +29,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "gimbal_task.h"
-#include "usbd_cdc_if.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -103,18 +102,14 @@ int main(void)
   MX_I2C2_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-  //gimbal_task_init();
-  const char *s = "HELLO\n";
+  gimbal_task_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    //gimbal_task_loop();
-    
-    CDC_Transmit_FS((uint8_t*)s, (uint16_t)strlen(s));
-    HAL_Delay(1000);
+    gimbal_task_loop();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

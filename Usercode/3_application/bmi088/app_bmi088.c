@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include "app_bmi088_math.h"
 #include "Serial.h"
+#include "gimbal_task.h"
 #include "MahonyAHRS.h"
 #include "MyMath.h"
 
@@ -114,7 +115,7 @@ void app_bmi088_init(void)
     bmi088_init(&bmi088_handle, &hspi1, GPIOC, GPIO_PIN_4, GPIO_PIN_RESET, GPIOB, GPIO_PIN_1, GPIO_PIN_RESET, GPIOB, GPIO_PIN_0, GPIOC, GPIO_PIN_5);
     bmi088_init_state = init_state_accsoftrest;
     JOLED_ShowString(2, 1, "start_init_bmi088");
-    Serial_Printf("start_init_bmi088\r\n");
+    STM32_Printf("start_init_bmi088\r\n");
 }
 
 void app_bmi088_task1(void)
@@ -134,7 +135,7 @@ void app_bmi088_init_process_loop(void)
     if(bmi088_init_state == init_state_accsoftrest)//acc软复位
     {
         JOLED_ShowString(2, 1, "start_init_1        ");
-        Serial_Printf("accsoftrest ing...\r\n");
+        STM32_Printf("accsoftrest ing...\r\n");
 
         bmi088_acc_softreset(&bmi088_handle,NULL);
         last_time = HAL_GetTick();
@@ -144,7 +145,7 @@ void app_bmi088_init_process_loop(void)
     {
         if(HAL_GetTick() - last_time >= 20)//等待1ms以上软复位完成
         {
-            Serial_Printf("gyrosoftrest ing...\r\n");
+            STM32_Printf("gyrosoftrest ing...\r\n");
 
             JOLED_ShowString(2, 1, "start_init_2      ");
             bmi088_gyro_softreset(&bmi088_handle,NULL);
@@ -156,7 +157,7 @@ void app_bmi088_init_process_loop(void)
     {
         if(HAL_GetTick() - last_time >= 40)//等待30ms以上软复位完成
         {
-            Serial_Printf("acc舍去一次无效读写 ing...\r\n");
+            STM32_Printf("acc舍去一次无效读写 ing...\r\n");
 
             JOLED_ShowString(2, 1, "start_init_3      ");
             bmi088_readid_acc(&bmi088_handle, bmi088_readid_acc_finished);
@@ -168,7 +169,7 @@ void app_bmi088_init_process_loop(void)
     {
         if(bmi088_readid_acc_flag)
         {
-            Serial_Printf("read acc id ing...\r\n");
+            STM32_Printf("read acc id ing...\r\n");
 
             JOLED_ShowString(2, 1, "start_init_4        ");
             bmi088_readid_acc(&bmi088_handle, bmi088_readid_acc_finished);
@@ -180,7 +181,7 @@ void app_bmi088_init_process_loop(void)
     {
         if(bmi088_readid_acc_flag)
         {
-            Serial_Printf("read gyro id ing...\r\n");
+            STM32_Printf("read gyro id ing...\r\n");
 
             JOLED_ShowHexNum(1, 1, read_accid, 2);
             bmi088_readid_gyro(&bmi088_handle, bmi088_readid_gyro_finished);
@@ -196,19 +197,19 @@ void app_bmi088_init_process_loop(void)
             bmi088_readid_gyro_flag = 0;
             if(read_accid == BMI088_ACC_CHIP_ID_VALUE && read_gyroid == BMI088_GYRO_CHIP_ID_VALUE)
             {
-                Serial_Printf("Check acc and gyro ID OK!\r\n");
+                STM32_Printf("Check acc and gyro ID OK!\r\n");
                 
                 JOLED_ShowString(1, 1, "  Check ID OK!   ");
                 checkid_flag = 1;
             }
             else 
             {
-                Serial_Printf("Check acc and gyro ID Error!\r\n");
+                STM32_Printf("Check acc and gyro ID Error!\r\n");
 
                 JOLED_ShowString(1, 1, "!Check ID Error!");
             }
             JOLED_ShowString(2, 1, "Start write reg");
-            Serial_Printf("Start write reg!\r\n");
+            STM32_Printf("Start write reg!\r\n");
             bmi088_init_state = init_state_startconfigreg;
         }
     }
@@ -216,7 +217,7 @@ void app_bmi088_init_process_loop(void)
     {
         bmi088_start(&bmi088_handle);
         JOLED_ShowString(2, 1, "  write reg ok ");
-        Serial_Printf("write reg finish!\r\n");
+        STM32_Printf("write reg finish!\r\n");
 
         writereg_flag = 1;
         bmi088_init_state = init_state_check_data;
@@ -224,13 +225,13 @@ void app_bmi088_init_process_loop(void)
         {
             JOLED_Clear();
             JOLED_ShowString(4, 1, "BOK");
-            Serial_Printf("BMI088 init OK!\r\n");
+            STM32_Printf("BMI088 init OK!\r\n");
         }
     }
     else if(bmi088_init_state == init_state_check_data)
     {
         JOLED_ShowString(1, 1, "wait");
-        Serial_Printf("wait for bias calibration!\r\n");
+        STM32_Printf("wait for bias calibration!\r\n");
 
         bmi088_biascalibration_start(1000);
         bmi088_init_state = init_state_wait_check_data;
@@ -277,11 +278,11 @@ void app_bmi088_loop(void)
         
         if(HAL_GetTick() - last_time3 >= 15)
         {
-            Serial_Printf("now get %d effective samples\r\n", bmi088_getbiascalibration_current_samples_effective());
+            STM32_Printf("now get %d effective samples\r\n", bmi088_getbiascalibration_current_samples_effective());
            
-            Serial_Printf("speed: %.2f samples/s\r\n", (float)(bmi088_getbiascalibration_current_samples()  / ((float)(HAL_GetTick() - last_time4)/1000.0f)));   
+            STM32_Printf("speed: %.2f samples/s\r\n", (float)(bmi088_getbiascalibration_current_samples()  / ((float)(HAL_GetTick() - last_time4)/1000.0f)));   
 
-            Serial_Printf("processing... %.2f %%\r\n", (float)bmi088_getbiascalibration_current_samples_effective()/(float)bmi088_getbiascalibration_target_samples()*100.0f);
+            STM32_Printf("processing... %.2f %%\r\n", (float)bmi088_getbiascalibration_current_samples_effective()/(float)bmi088_getbiascalibration_target_samples()*100.0f);
             
             //JOLED_ShowNum(1, 10, bmi088_getbiascalibration_current_samples_effective(), 3);
             //JOLED_ShowNum(1, 6, bmi088_getbiascalibration_current_samples(), 3);
@@ -292,10 +293,10 @@ void app_bmi088_loop(void)
         {
             bmi088_init_state = init_state_finish;
             JOLED_ShowString(1, 1, "ok get:              ");
-            Serial_Printf("bias calibration finish!\r\n");
+            STM32_Printf("bias calibration finish!\r\n");
 
 
-            Serial_Printf("Get %d effective samples use %.2f s\r\n", bmi088_getbiascalibration_current_samples_effective(), (float)(HAL_GetTick() - last_time4)/1000.0f);
+            STM32_Printf("Get %d effective samples use %.2f s\r\n", bmi088_getbiascalibration_current_samples_effective(), (float)(HAL_GetTick() - last_time4)/1000.0f);
             
             JOLED_ShowNum(1, 8, bmi088_getbiascalibration_current_samples_effective(), 5);
             
@@ -330,7 +331,7 @@ void app_bmi088_loop(void)
             float gimbal_pitch,gimbal_yaw;
 
             euler_extrinsic_ZXY_to_front_yaw_pitch_deg(yaw,roll,pitch,&gimbal_yaw,&gimbal_pitch);
-            Serial_Printf("%.8f,%.8f,%.8f,%.8f,%.8f\r\n",roll,pitch,yaw,gimbal_pitch,gimbal_yaw);
+            STM32_Printf("%.8f,%.8f,%.8f,%.8f,%.8f\r\n",roll,pitch,yaw,gimbal_pitch,gimbal_yaw);
 
         }
     }
