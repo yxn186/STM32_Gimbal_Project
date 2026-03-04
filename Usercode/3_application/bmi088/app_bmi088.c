@@ -17,9 +17,8 @@
 #include "app_bmi088_math.h"
 #include "Serial.h"
 #include "MahonyAHRS.h"
+#include "MyMath.h"
 
-#define BMI088_RAD2DEG                 (57.295779513f)  // 180°/3.1415926
-#define BMI088_DEG2RAD                 (0.01745329252f) // 3.14/180°
 
 bmi088_handle_t bmi088_handle;
 

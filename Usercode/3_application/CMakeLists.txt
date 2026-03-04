@@ -20,6 +20,7 @@ set(APP_SOURCES
     #${CMAKE_CURRENT_LIST_DIR}/W25Q64/app_W25Q64.c
     ${CMAKE_CURRENT_LIST_DIR}/bmi088/app_bmi088.c
     ${CMAKE_CURRENT_LIST_DIR}/bmi088/app_bmi088_math.c
+    ${CMAKE_CURRENT_LIST_DIR}/gimbal_task/gimbal_task.c
 )
 
 # ============================================================

@@ -26,9 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "joled.h"
-#include "app_bmi088.h"
-#include "Serial.h"
+#include "gimbal_task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -97,17 +95,15 @@ int main(void)
   MX_SPI1_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  JOLED_Init();
-  JOLED_ShowString(2, 1, "ok");
-  Serial_Init(&huart1);
-  app_bmi088_init();
+  gimbal_task_init();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    app_bmi088_loop();
+    gimbal_task_loop();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

@@ -75,9 +75,9 @@ endfunction()
 
 add_library(project_includes INTERFACE)
 
-collect_header_dirs(BSP_HDR_DIRS  "${CMAKE_SOURCE_DIR}/bsp")
-collect_header_dirs(MOD_HDR_DIRS  "${CMAKE_SOURCE_DIR}/module")
-collect_header_dirs(APP_HDR_DIRS  "${CMAKE_SOURCE_DIR}/application")
+collect_header_dirs(BSP_HDR_DIRS  "${CMAKE_SOURCE_DIR}/Usercode//1_bsp")
+collect_header_dirs(MOD_HDR_DIRS  "${CMAKE_SOURCE_DIR}/Usercode//2_module")
+collect_header_dirs(APP_HDR_DIRS  "${CMAKE_SOURCE_DIR}/Usercode//3_application")
 
 target_include_directories(project_includes INTERFACE
     ${BSP_HDR_DIRS}
@@ -87,9 +87,9 @@ target_include_directories(project_includes INTERFACE
 # ---------------------------------------------------------------------------
 
 # Add layered libraries
-add_subdirectory(bsp)
-add_subdirectory(module)
-add_subdirectory(application)
+add_subdirectory(Usercode/1_bsp)
+add_subdirectory(Usercode/2_module)
+add_subdirectory(Usercode/3_application)
 
 # Link directories setup
 target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
