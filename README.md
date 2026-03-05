@@ -1,120 +1,105 @@
-# STM32_GIMBAL_Projects
-Learning the STM32HAL ing..
+﻿# STM32_GIMBAL_Projects
 
+基于 STM32F405 + HAL + CubeMX + CMake 的云台控制学习/开发工程。
 
+## 程序函数调用框图
 
-# 开发流程
+```mermaid
+flowchart TD
+    A[main.cpp] --> B[HAL 初始化 / 时钟 / 外设初始化]
+    B --> C[application 层任务]
+    C --> D[gimbal_task]
+    C --> E[app_bmi088]
+    D --> F[module 层]
+    E --> F
+    F --> G[DJI_Motor / PID / AHRS / DR16 / BMI088 / OLED / Serial]
+    G --> H[bsp 层]
+    H --> I[CAN / SPI / USART / USB / DWT]
+    I --> J[CubeMX 生成代码 Core + USB_DEVICE + HAL Drivers]
+```
 
-## 1. **初始项目**
+## 项目目录结构（按当前仓库）
 
- `main` 分支作为基础分支 已经拥有支持开发的一切基础配置（OLED配置等）
+```text
+.
+├─ Core/                     # CubeMX 生成：核心启动与外设初始化
+├─ Drivers/                  # HAL/CMSIS
+├─ Middlewares/              # USB Device 等中间件
+├─ USB_DEVICE/               # USB 设备栈与接口
+├─ cmake/
+│  └─ stm32cubemx/           # CubeMX 转换后的 CMake 子工程
+├─ Usercode/
+│  ├─ 1_bsp/                 # 板级支持层
+│  │  ├─ CAN/
+│  │  ├─ DWT/
+│  │  ├─ SPI/
+│  │  ├─ USART/
+│  │  └─ USB/
+│  ├─ 2_module/              # 功能模块层
+│  │  ├─ bmi088/
+│  │  ├─ DJI_Motor/
+│  │  ├─ DR16/
+│  │  ├─ Math/
+│  │  ├─ OLED/
+│  │  └─ Serial/
+│  └─ 3_application/         # 业务应用层
+│     ├─ bmi088/
+│     └─ gimbal_task/
+├─ CMakeLists.txt
+├─ CMakePresets.json
+├─ GeneratorBefore.bat
+└─ GeneratorAfter.bat
+```
 
-以及拥有所需要的各种模块的.c/.h 都存放在`Usercode`文件夹内
+## 分层使用逻辑
 
-**所有自己的模块都要在`Usercode`文件夹内！！！**
+1. `Core/`、`USB_DEVICE/`、`Drivers/`、`Middlewares/`：CubeMX/HAL 生成与维护。
+2. `Usercode/1_bsp`：直接贴近硬件外设（CAN/SPI/UART/USB/DWT 等）。
+3. `Usercode/2_module`：可复用功能模块（电机、传感器、算法、通信组件）。
+4. `Usercode/3_application`：任务编排与业务逻辑，组合调用 module + bsp。
+5. 顶层 `CMakeLists.txt`：统一组织 `stm32cubemx + bsp + module + application`。
 
-## 2. **创建/切换新的模块分支**
+## 开发流程（建议）
 
-在每次开发学习新模块/新项目时，你需要 **创建/切换一个新的分支**！
+1. 基于 `main` 创建功能分支。
+2. 在分支上开发 `Usercode` 下的 `.c/.cpp/.h`。
+3. 若需改外设，打开 `.ioc` 用 CubeMX 配置并重新生成。
+4. 提交并推送分支。
+5. 回到 `main` 后，仅按需提取模块文件：
 
-这个分支用于该模块/项目的独立开发。
+```bash
+git checkout <你的功能分支> -- Usercode/
+```
 
-在**微软大战代码**的界面左下角 有显示当前分支（刚开始是main）
+6. 在 `main` 提交合并后的模块更新。
 
-点开 会弹出消息 可以**新建分支或者切换分支**
+## CubeMX + C++ 协同策略
 
-## 3. **在新分支上开发**
+CubeMX 会固定生成 `main.c`（以及 USB CDC 的 `usbd_cdc_if.c`），而工程实际使用 `main.cpp` / `usbd_cdc_if.cpp`。
 
-在新创建/切换的分支上进行开发，你可以编辑、添加 `.c` 和 `.h` 文件，或者修改现有文件。
+当前方案：
 
-你可以像平常一样编辑代码，**微软大战代码**会自动跟踪你所做的更改。
+1. 生成前执行 `GeneratorBefore.bat`：把 `main.cpp` 临时改名为 `main.c`。
+2. CubeMX 完成生成后执行 `GeneratorAfter.bat`：再改回 `main.cpp`，并删除 `usbd_cdc_if.c`。
+3. 顶层 `CMakeLists.txt` 中把 `main.c`、`usbd_cdc_if.c` 标为 `HEADER_FILE_ONLY`，并显式编译 `main.cpp`、`usbd_cdc_if.cpp`。
 
-也可以点开文件夹内的 `.ioc`文件 使用 **CubeMX** 配置stm32
+## CMake 构建
 
-## 4. **提交当前分支的更改**
+```bash
+cmake --preset Debug
+cmake --build --preset Debug
+```
 
-> 提交前请确保关闭了 **CubeMX** ！！！
+Release 构建：
 
-- 每次完成开发并确认功能正常后，你需要将代码提交到本地仓库。
-  - 打开 **源代码管理** 面板
-  - 你会看到 **修改的文件**（例如 `.c` 和 `.h` 文件）列在 **更改**（Changes）列表中
-  - 选择需要提交的文件（或直接点击 **全部添加**）
-  - 输入提交信息，例如：`更新xxxxxx`
-  - 点击 **提交** 按钮来提交更改。
+```bash
+cmake --preset Release
+cmake --build --preset Release
+```
 
-## 5. **推送更改到远程仓库**
+## 关键脚本与配置（完整原文）
 
-- 提交后，你需要将本地的分支推送到远程仓库
-  - 点击 **同步更改** 按钮，或者使用命令面板中的 **Git: Push** 操作
-  - VSCode 会推送你当前的分支到远程仓库
-  - 此时 当下分支就同步完成
-
-## 6. **切换回 `main` 分支**
-
-- 在完成模块开发并推送到远程仓库后，你需要将修改合并到 `main` 分支。
-  - 点击 **左下角的分支名称**
-  - 选择 **`main` 分支**，切换回 `main` 分支
-
-## 7. **提取需要提取分支中可能需要添加的 `.c` 和 `.h` 文件到 `你需要提取到的` 分支**
-
-> 对于stm32hal的学习 只需同步模块的.c .h即可
->
-> 为后续开发提供模块接口
-
-- 在 **命令面板** 中输入 `Git: Checkout to...`，然后选择 **你需要提取到的分支的分支名** 
-
-- 提取指定的 `.c` 和 `.h` 文件到 `你需要提取到的` 分支：
-
-  - 打开 **终端**（`Ctrl +` 或 `Cmd +`）。
-
-  - 执行以下命令：
-
-    ```
-    git checkout 需要提取的分支的分支名 -- User/
-    ```
-
-    这会从 需要提取的分支 提取 `新的.h` 和 `新的.c` 文件到 `你需要提取到的` 分支。
-
-## 8. **提交合并的更改**
-
-- 返回 **源代码管理** 面板，确保文件已经被提取并出现在待提交的更改中。
-- 输入提交信息，例如：`更新模块接口`。
-- 点击 **提交** 按钮，提交合并后的更改。
-
-## 9. **推送更新到远程仓库**
-
-- 提交完更改后，点击 **同步更改** 按钮，或者使用命令面板中的 **Git: Push** 操作，将 `main` 分支的更改推送到远程仓库。
-
-## 10. **继续开发其他模块**
-
-- 对每个新的模块/项目，重复从 `main` 分支创建新的分支，进行开发、提交和推送。
-- 每次开发完成后，提取相应的 `.c` 和 `.h` 文件到 `main` 分支，并推送到远程仓库。
-
-
-
-# 开发注意
-
-## 模块接口
-
-**尽量做成通用性强的！！！**
-
-
-
-## C++配置
-
-使用CubeMX+Vscode开发支持C++的
-
-参考https://blog.csdn.net/qq_38961840/article/details/142530594
-
-大概就是使用cubemx的User Actions功能
-
-因为比如main.c
-
-改成cpp之后 再用cubemx生成代码 cubemx只生成.c
-
-所以原理就是 在生成代码之前 把cpp改成c文件 然后生成代码 然后再生成cpp 这样就不会出问题了
-
-AI增强过的代码 使用.bat文件 放入目录中
+### `GeneratorBefore.bat`
 
 ```bat
 @echo off
@@ -151,12 +136,11 @@ if exist "%main_cpp_file%" (
 )
 
 echo =============^> GeneratorBefore.bat stop ^<=============
-
 ```
 
+### `GeneratorAfter.bat`
 
-
-```c
+```bat
 @echo off
 echo ============= GeneratorAfter.bat run =============
 
@@ -179,51 +163,22 @@ if exist "%main_c_file%" (
     exit /b 30
 )
 
+set "usb_c_file=%~dp0USB_DEVICE\App\usbd_cdc_if.c"
+if exist "%usb_c_file%" (
+    del /f /q "%usb_c_file%"
+    if errorlevel 1 (
+        echo [ERR] Delete usbd_cdc_if.c failed.
+        exit /b 31
+    )
+    echo OK deleted usbd_cdc_if.c
+) else (
+    echo [WARN] usbd_cdc_if.c not found, skip delete
+)
+
 echo ============= GeneratorAfter.bat stop =============
-
 ```
 
-
-
-同时也要修改顶层的CMakeLists
-
-因为这个目录下的cmakelists有个
-
-```cmake
-# STM32CubeMX generated application sources
-set(MX_Application_Src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/main.c
-```
-
-cubemx生成时 永远都是main.c 需改成cpp才能成功编译 但是每次改很麻烦 使用上面的after好像也不能改
-
-所以就在顶层cmakelists里忽略一下这个这样的操作
-
-**cmakelists代码一同放在下面**
-
-
-
-## 文件层级逻辑（知道即可）
-
-### CubeMX 生成代码
-
-Core下的Inc和Src存放由CubeMX自动生成的.h .c
-
-所以记得要打开CubeMX中
-
-Project Manager-Code Generator中的生成.c.h文件选项
-
-### bsp、module、application层
-
-```ruby
-bsp/          # 板级支持：引脚/句柄/端口适配（更贴近硬件）
-module/       # 功能模块：驱动/算法/组件（尽量少依赖具体板子）
-application/  # 应用层：业务逻辑/任务/状态机，把 module 拼起来实现功能
-```
-
-**camkelists配置**
-
-根目录下的camkelists
+### `CMakeLists.txt`（仓库根目录）
 
 ```cmake
 cmake_minimum_required(VERSION 3.22)
@@ -273,6 +228,14 @@ add_executable(${CMAKE_PROJECT_NAME})
 # MUST be placed before add_subdirectory(cmake/stm32cubemx)
 set(MX_MAIN_C ${CMAKE_SOURCE_DIR}/Core/Src/main.c)
 set_source_files_properties(${MX_MAIN_C} PROPERTIES
+    GENERATED TRUE
+    HEADER_FILE_ONLY TRUE
+)
+
+# Keep only usbd_cdc_if.cpp: ignore CubeMX-referenced usbd_cdc_if.c
+# MUST be placed before add_subdirectory(cmake/stm32cubemx)
+set(MX_USBD_CDC_IF_C ${CMAKE_SOURCE_DIR}/USB_DEVICE/App/usbd_cdc_if.c)
+set_source_files_properties(${MX_USBD_CDC_IF_C} PROPERTIES
     GENERATED TRUE
     HEADER_FILE_ONLY TRUE
 )
@@ -327,6 +290,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Core/Src/main.cpp
+    ${CMAKE_SOURCE_DIR}/USB_DEVICE/App/usbd_cdc_if.cpp
 )
 
 # Add include paths
@@ -361,9 +325,134 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -u _printf_float")
 ```
 
+### `cmake/stm32cubemx/CMakeLists.txt`
+
+```cmake
+cmake_minimum_required(VERSION 3.22)
+# Enable CMake support for ASM and C languages
+enable_language(C ASM)
+# STM32CubeMX generated symbols (macros)
+set(MX_Defines_Syms 
+	USE_HAL_DRIVER 
+	STM32F405xx
+    $<$<CONFIG:Debug>:DEBUG>
+)
+
+# STM32CubeMX generated include paths
+set(MX_Include_Dirs
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_DEVICE/App
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_DEVICE/Target
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Device_Library/Core/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/CMSIS/Device/ST/STM32F4xx/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/CMSIS/Include
+)
+
+# STM32CubeMX generated application sources
+set(MX_Application_Src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_DEVICE/Target/usbd_conf.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_DEVICE/App/usb_device.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_DEVICE/App/usbd_desc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_DEVICE/App/usbd_cdc_if.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/main.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/gpio.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/can.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/dma.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/i2c.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/spi.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/usart.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/stm32f4xx_it.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/stm32f4xx_hal_msp.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/sysmem.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/syscalls.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../startup_stm32f405xx.s
+)
+
+# STM32 HAL/LL Drivers
+set(STM32_Drivers_Src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/system_stm32f4xx.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pcd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pcd_ex.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_usb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc_ex.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash_ex.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash_ramfunc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma_ex.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr_ex.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_can.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c_ex.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c
+)
+
+# Drivers Midllewares
 
 
-这是bsp的
+set(USB_Device_Library_Src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ctlreq.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/usbd_cdc.c
+)
+
+# Link directories setup
+set(MX_LINK_DIRS
+
+)
+# Project static libraries
+set(MX_LINK_LIBS 
+    STM32_Drivers
+    ${TOOLCHAIN_LINK_LIBRARIES}
+    USB_Device_Library
+	
+)
+# Interface library for includes and symbols
+add_library(stm32cubemx INTERFACE)
+target_include_directories(stm32cubemx INTERFACE ${MX_Include_Dirs})
+target_compile_definitions(stm32cubemx INTERFACE ${MX_Defines_Syms})
+
+# Create STM32_Drivers static library
+add_library(STM32_Drivers OBJECT)
+target_sources(STM32_Drivers PRIVATE ${STM32_Drivers_Src})
+target_link_libraries(STM32_Drivers PUBLIC stm32cubemx)
+
+
+# Create USB_Device_Library static library
+add_library(USB_Device_Library OBJECT)
+target_sources(USB_Device_Library PRIVATE ${USB_Device_Library_Src})
+target_link_libraries(USB_Device_Library PUBLIC stm32cubemx)
+
+# Add STM32CubeMX generated application sources to the project
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${MX_Application_Src})
+
+# Link directories setup
+target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE ${MX_LINK_DIRS})
+
+# Add libraries to the project
+target_link_libraries(${CMAKE_PROJECT_NAME} ${MX_LINK_LIBS})
+
+# Add the map file to the list of files to be removed with 'clean' target
+set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES ADDITIONAL_CLEAN_FILES ${CMAKE_PROJECT_NAME}.map)
+
+# Validate that STM32CubeMX code is compatible with C standard
+if((CMAKE_C_STANDARD EQUAL 90) OR (CMAKE_C_STANDARD EQUAL 99))
+    message(ERROR "Generated code requires C11 or higher")
+endif()
+```
+
+### `Usercode/1_bsp/CMakeLists.txt`
 
 ```cmake
 cmake_minimum_required(VERSION 3.22)
@@ -388,20 +477,21 @@ target_link_libraries(bsp PUBLIC
     project_includes
     stm32cubemx
 )
-
 ```
 
-
-
-module
+### `Usercode/2_module/CMakeLists.txt`
 
 ```cmake
 cmake_minimum_required(VERSION 3.22)
+
+option(OLED_USE_DMA_BACKEND "Use DMA backend for OLED driver" ON)
 
 file(GLOB_RECURSE MOD_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_LIST_DIR}/*.c
     ${CMAKE_CURRENT_LIST_DIR}/*.cpp
 )
+
+
 
 if(MOD_SOURCES)
     add_library(module STATIC ${MOD_SOURCES})
@@ -418,26 +508,9 @@ target_link_libraries(module PUBLIC
     project_includes
     stm32cubemx
 )
-
 ```
 
-
-
-#### application层使用方法
-
-因为application可能会使用到cubemx生成的一些参数之类的 所以采取cmakelists添加后才编译app.c的操作
-
-**使用方法**
-
-假设你新建了：application/gimbal/app_gimbal.c
-
-在文件系统里创建 .c/.cpp（你照常写代码）
-
-打开 application/CMakeLists.txt
-
-把文件路径加到 APP_SOURCES：
-
-${CMAKE_CURRENT_LIST_DIR}/gimbal/app_gimbal.c
+### `Usercode/3_application/CMakeLists.txt`
 
 ```cmake
 cmake_minimum_required(VERSION 3.22)
@@ -459,8 +532,10 @@ set(APP_SOURCES
     #   把文件路径加到 APP_SOURCES：
     #   ${CMAKE_CURRENT_LIST_DIR}/gimbal/app_gimbal.c
 
-    #xxxxxxxx待添加的app.c
-
+    #${CMAKE_CURRENT_LIST_DIR}/W25Q64/app_W25Q64.c
+    ${CMAKE_CURRENT_LIST_DIR}/bmi088/app_bmi088.c
+    ${CMAKE_CURRENT_LIST_DIR}/bmi088/app_bmi088_math.c
+    ${CMAKE_CURRENT_LIST_DIR}/gimbal_task/gimbal_task.c
 )
 
 # ============================================================
@@ -482,4 +557,3 @@ target_link_libraries(application PUBLIC
     stm32cubemx
 )
 ```
-
