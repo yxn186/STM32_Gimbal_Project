@@ -68,6 +68,13 @@ void Serial_Init(UART_HandleTypeDef *huart);
  */
 void Serial_Printf(const char *format, ...);
 
+/**
+ * @brief 串口发送数据函数
+ * 
+ * @param data 要发送的数据指针
+ * @param length 要发送的数据长度
+ */
+void Serial_Send_Data(const uint8_t *data, uint16_t length);
 
 #ifdef __cplusplus
 }

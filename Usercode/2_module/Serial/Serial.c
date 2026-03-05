@@ -307,6 +307,17 @@ void Serial_Printf(const char *format, ...)
     (void)Serial_Write_To_TxBuffer((const uint8_t *)Printf_Temp_Buffer, (uint16_t)length);
 }
 
+/**
+ * @brief 串口发送数据函数
+ * 
+ * @param data 要发送的数据指针
+ * @param length 要发送的数据长度
+ */
+void Serial_Send_Data(const uint8_t *data, uint16_t length)
+{
+    Serial_Write_To_TxBuffer(data, length);
+}
+
 /* ============================================================
  * 对外接口：Rx 环形缓冲区读取
  * ============================================================ */
