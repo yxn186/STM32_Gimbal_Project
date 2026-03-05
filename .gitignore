@@ -3,6 +3,7 @@
 # 忽略编译生成的文件夹和文件
 /build/
 /Debug/
+/build-vscode/
 /Release/
 /*.bin
 /*.elf
