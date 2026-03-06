@@ -19,6 +19,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
+#include "cmsis_os2.h"
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
@@ -60,6 +61,11 @@ const osThreadAttr_t SerialTask_attributes = {
   .name = "SerialTask",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for myQueue01 */
+osMessageQueueId_t myQueue01Handle;
+const osMessageQueueAttr_t myQueue01_attributes = {
+  .name = "myQueue01"
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -112,6 +118,10 @@ void MX_FREERTOS_Init(void) {
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
+  /* Create the queue(s) */
+  /* creation of myQueue01 */
+  myQueue01Handle = osMessageQueueNew (16, sizeof(uint32_t), &myQueue01_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
@@ -145,10 +155,13 @@ void StartDefaultTask(void *argument)
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
+  uint32_t num = 0;
   /* Infinite loop */
   for(;;)
   {
+    
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
+    osMessageQueuePut(myQueue01Handle, &num, 0, 0);
     osDelay(500);
   }
   /* USER CODE END StartDefaultTask */
@@ -164,10 +177,12 @@ void StartDefaultTask(void *argument)
 void StartSerialTask(void *argument)
 {
   /* USER CODE BEGIN StartSerialTask */
+  uint32_t num = 0;
   char buffer[] = "Hellow world!\r\n";
   /* Infinite loop */
   for(;;)
   {
+    osMessageQueueGet(myQueue01Handle, &num, 0, osWaitForever);
     Serial_Send_Data((const uint8_t *)buffer, sizeof(buffer) - 1);
     osDelay(200);
   }
