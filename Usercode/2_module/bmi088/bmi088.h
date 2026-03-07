@@ -162,16 +162,18 @@ void bmi088_start(bmi088_handle_t *handle);
  * 
  * @param handle BMI088句柄指针
  * @param acc_get_raw_data_finishedfunction 读取完成回调（三轴int16原始值）
+ * @return uint8_t 执行是否成功
  */
-void bmi088_get_acc_raw_data(bmi088_handle_t *handle,bmi088_acc_get_raw_data_finishedfunction acc_get_raw_data_finishedfunction);
+uint8_t bmi088_get_acc_raw_data(bmi088_handle_t *handle,bmi088_acc_get_raw_data_finishedfunction acc_get_raw_data_finishedfunction);
 
 /**
  * @brief bmi088_get_gyro_raw_data 获取gyro原始角速度（X/Y/Z，共6字节）
  * 
  * @param handle BMI088句柄指针
- * @param gyro_raw_data_finishedfunction 读取完成回调（三轴int16原始值）
+ * @param gyro_get_raw_data_finishedfunction 读取完成回调（三轴int16原始值）
+ * @return uint8_t 执行是否成功
  */
-void bmi088_get_gyro_raw_data(bmi088_handle_t *handle,bmi088_gyro_get_raw_data_finishedfunction gyro_get_raw_data_finishedfunction);
+uint8_t bmi088_get_gyro_raw_data(bmi088_handle_t *handle,bmi088_gyro_get_raw_data_finishedfunction gyro_get_raw_data_finishedfunction);
 
 /**
  * @brief BMI088 acc 写寄存器阻塞版

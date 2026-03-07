@@ -104,7 +104,7 @@ int main(void)
   MX_CAN2_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
-  Serial_Init(&huart1);
+
   //gimbal_task_init();
   /* USER CODE END 2 */
 

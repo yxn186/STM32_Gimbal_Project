@@ -17,6 +17,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "PID.h"
 
 /*YOUR CODE*/
 
@@ -25,18 +26,29 @@ extern "C" {
  * 
  */
 void app_bmi088_init(void);
-
+uint8_t app_bmi088_init_process_loop(void);
 void app_bmi088_task1(void);
 void app_bmi088_task2(void);
 
 /**
- * @brief BMI088 循环函数
+ * @brief BMI088 20ms周期任务 函数
  * 
  */
-void app_bmi088_loop(void);
+void app_bmi088_20ms_task(void);
 
+/**
+ * @brief BMI088 FreeRTOS初始化
+ * 
+ */
+void bmi088_freertos_init(void);
 
+void bmi088_calculate_task(void *argument);
 
+/**
+ * @brief BMI088 1ms周期任务 函数
+ * 
+ */
+void app_bmi088_1ms_task(PID_t *Pitch, PID_t *Yaw);
 
 #ifdef __cplusplus
 }

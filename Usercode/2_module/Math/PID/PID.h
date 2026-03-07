@@ -23,29 +23,55 @@ extern "C" {
 
 typedef struct
 {
-    float Target;
-    float Kp;
-    float Ki;
-    float Kd;
-} PID_Cfg_t;
-
-typedef struct
-{
     float Current_speed;
     float Current_Angle;
     float Error0;
     float Error1;
     float ErrorInt;
-    float Out;
 } PID_Status_t;
 
+typedef struct
+{
+    float Speed_Target;
+    float Kp_s;
+    float Ki_s;
+    float Kd_s;
+    float Out;
+
+    float ErrorInt_High_s;
+    float ErrorInt_Low_s;
+
+    float Out_High;
+    float Out_Low;
+
+    float Angle_Target;
+    float Kp_a;
+    float Ki_a;
+    float Kd_a;
+
+    float ErrorInt_High_a;
+    float ErrorInt_Low_a;
+
+    float Speed_Target_High;
+    float Speed_Target_Low;
+
+    PID_Status_t PID_Angle_Status;
+    PID_Status_t PID_Speed_Status;
+} PID_t;
+
 /**
- * @brief PID控制 单电机
+ * @brief PID控制 速度环
  * 
- * @param PID_Cfg_Data PID配置参数：Kp Ki Kd Target
- * @param PID_Status PID状态
+ * @param PID_Object PID控制对象指针，包含配置参数和状态
  */
-void PID_Control_Single(PID_Cfg_t *PID_Cfg_Data,PID_Status_t *PID_Status);
+void PID_Control_Speed(PID_t *PID_Object);
+
+/**
+ * @brief PID控制 角度环
+ * 
+ * @param PID_Object PID控制对象指针，包含配置参数和状态
+ */
+void PID_Control_Angle(PID_t *PID_Object);
 
 
 #ifdef __cplusplus

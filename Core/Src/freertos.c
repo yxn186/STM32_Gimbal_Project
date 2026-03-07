@@ -19,14 +19,13 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os2.h"
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "Serial.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,24 +47,26 @@
 /* USER CODE BEGIN Variables */
 
 /* USER CODE END Variables */
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+/* Definitions for InitTask */
+osThreadId_t InitTaskHandle;
+const osThreadAttr_t InitTask_attributes = {
+  .name = "InitTask",
+  .stack_size = 1024 * 4,
+  .priority = (osPriority_t) osPriorityRealtime7,
 };
-/* Definitions for SerialTask */
-osThreadId_t SerialTaskHandle;
-const osThreadAttr_t SerialTask_attributes = {
-  .name = "SerialTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+/* Definitions for main_Task_1khz */
+osThreadId_t main_Task_1khzHandle;
+const osThreadAttr_t main_Task_1khz_attributes = {
+  .name = "main_Task_1khz",
+  .stack_size = 1024 * 4,
+  .priority = (osPriority_t) osPriorityRealtime6,
 };
-/* Definitions for myQueue01 */
-osMessageQueueId_t myQueue01Handle;
-const osMessageQueueAttr_t myQueue01_attributes = {
-  .name = "myQueue01"
+/* Definitions for Data_ptintf */
+osThreadId_t Data_ptintfHandle;
+const osThreadAttr_t Data_ptintf_attributes = {
+  .name = "Data_ptintf",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityRealtime4,
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -73,8 +74,9 @@ const osMessageQueueAttr_t myQueue01_attributes = {
 
 /* USER CODE END FunctionPrototypes */
 
-void StartDefaultTask(void *argument);
-void StartSerialTask(void *argument);
+void StartInitTask(void *argument);
+void main_Task_1ms(void *argument);
+void Data_ptintf_task(void *argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -118,20 +120,19 @@ void MX_FREERTOS_Init(void) {
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
-  /* Create the queue(s) */
-  /* creation of myQueue01 */
-  myQueue01Handle = osMessageQueueNew (16, sizeof(uint32_t), &myQueue01_attributes);
-
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  /* creation of InitTask */
+  InitTaskHandle = osThreadNew(StartInitTask, NULL, &InitTask_attributes);
 
-  /* creation of SerialTask */
-  SerialTaskHandle = osThreadNew(StartSerialTask, NULL, &SerialTask_attributes);
+  /* creation of main_Task_1khz */
+  main_Task_1khzHandle = osThreadNew(main_Task_1ms, NULL, &main_Task_1khz_attributes);
+
+  /* creation of Data_ptintf */
+  Data_ptintfHandle = osThreadNew(Data_ptintf_task, NULL, &Data_ptintf_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -143,50 +144,60 @@ void MX_FREERTOS_Init(void) {
 
 }
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_StartInitTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
+  * @brief  Function implementing the InitTask thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+/* USER CODE END Header_StartInitTask */
+__weak void StartInitTask(void *argument)
 {
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
-  /* USER CODE BEGIN StartDefaultTask */
-  uint32_t num = 0;
+  /* USER CODE BEGIN StartInitTask */
   /* Infinite loop */
   for(;;)
   {
-    
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
-    osMessageQueuePut(myQueue01Handle, &num, 0, 0);
-    osDelay(500);
+    osDelay(1);
   }
-  /* USER CODE END StartDefaultTask */
+  /* USER CODE END StartInitTask */
 }
 
-/* USER CODE BEGIN Header_StartSerialTask */
+/* USER CODE BEGIN Header_main_Task_1ms */
 /**
-* @brief Function implementing the SerialTask thread.
+* @brief Function implementing the main_Task_1khz thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_StartSerialTask */
-void StartSerialTask(void *argument)
+/* USER CODE END Header_main_Task_1ms */
+__weak void main_Task_1ms(void *argument)
 {
-  /* USER CODE BEGIN StartSerialTask */
-  uint32_t num = 0;
-  char buffer[] = "Hellow world!\r\n";
+  /* USER CODE BEGIN main_Task_1ms */
   /* Infinite loop */
   for(;;)
   {
-    osMessageQueueGet(myQueue01Handle, &num, 0, osWaitForever);
-    Serial_Send_Data((const uint8_t *)buffer, sizeof(buffer) - 1);
-    osDelay(200);
+    osDelay(1);
   }
-  /* USER CODE END StartSerialTask */
+  /* USER CODE END main_Task_1ms */
+}
+
+/* USER CODE BEGIN Header_Data_ptintf_task */
+/**
+* @brief Function implementing the Data_ptintf thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_Data_ptintf_task */
+__weak void Data_ptintf_task(void *argument)
+{
+  /* USER CODE BEGIN Data_ptintf_task */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END Data_ptintf_task */
 }
 
 /* Private application code --------------------------------------------------*/

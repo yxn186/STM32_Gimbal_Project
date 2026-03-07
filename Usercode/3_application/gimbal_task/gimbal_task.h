@@ -34,9 +34,8 @@ extern bool init_finished;
 #endif
 
 void gimbal_task_init(void);
-void gimbal_task_loop(void);
-
-
+uint8_t gimbal_task_init_loop(void);
+void gimbal_pid_conrol(void);
 
 
 #ifdef __cplusplus

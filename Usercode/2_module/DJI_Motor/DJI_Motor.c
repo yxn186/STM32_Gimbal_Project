@@ -34,7 +34,7 @@ static uint8_t TxData_200[8] = {0};
 static uint8_t TxData_1FF[8] = {0};
 static uint8_t TxData_2FF[8] = {0};
 
-static DJI_Motor_Data_t *DJI_Motors_Data_Temp = NULL;
+static DJI_Motor_Data_t *DJI_Motors_Data_Global = NULL;
 
 /**
  * @brief 大疆电机获取数据函数（回调调用）
@@ -57,7 +57,7 @@ void DJI_Motor_Get_Data(CAN_Rx_Buffer_t *RxBuffer,DJI_Motor_Data_t *DJI_Motors_D
  */
 static void DJI_Motor_RxCallBack(CAN_Rx_Buffer_t *RxBuffer)
 {
-    if (!DJI_Motors_Data_Temp)//防炸
+    if (!DJI_Motors_Data_Global)//防炸
     {
         return;
     }
@@ -69,7 +69,7 @@ static void DJI_Motor_RxCallBack(CAN_Rx_Buffer_t *RxBuffer)
        return;
     }
 
-    DJI_Motor_Get_Data(RxBuffer, &DJI_Motors_Data_Temp[ID - Motor_ID_Start]); 
+    DJI_Motor_Get_Data(RxBuffer, &DJI_Motors_Data_Global[ID - Motor_ID_Start]); 
 }
 
 /**
@@ -94,7 +94,7 @@ void DJI_Motor_CAN_Init(CAN_HandleTypeDef *hcan, uint8_t Object_Para, uint32_t I
  */
 void DJI_Motor_Init(CAN_HandleTypeDef *hcan,DJI_Motor_Data_t DJI_Motors_Data[8])
 {
-    DJI_Motors_Data_Temp = DJI_Motors_Data;
+    DJI_Motors_Data_Global = DJI_Motors_Data;
     CAN_Register_RxCallBack_FIFO0_Function(DJI_Motor_RxCallBack);
     DJI_Motor_CAN_Init(hcan,CAN_FILTER(0) | CAN_FIFO_0 | CAN_STDID | CAN_DATA_TYPE,0x200, 0x7E0);
 }
@@ -254,7 +254,7 @@ void DJI_Motor_Control_Double(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI
  */
 float DJI_Motor_Get_Angle(uint8_t DJI_Motor_ID)
 {
-    return (float)DJI_Motors_Data_Temp[DJI_Motor_ID-1].RawAngle * 360.0 / 8192.0;
+    return (float)DJI_Motors_Data_Global[DJI_Motor_ID-1].RawAngle * 360.0 / 8192.0;
 }
 
 /**
@@ -265,5 +265,5 @@ float DJI_Motor_Get_Angle(uint8_t DJI_Motor_ID)
  */
 float DJI_Motor_Get_AngleSpeed(uint8_t DJI_Motor_ID)
 {
-    return (float)DJI_Motors_Data_Temp[DJI_Motor_ID-1].speed_rpm / 60.0 * 2.0 * (3.1415926);
+    return (float)DJI_Motors_Data_Global[DJI_Motor_ID-1].speed_rpm / 60.0 * 2.0 * (3.1415926);
 }

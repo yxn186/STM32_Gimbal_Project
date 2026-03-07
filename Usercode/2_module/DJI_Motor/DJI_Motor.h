@@ -82,6 +82,18 @@ void DJI_Motor_Init(CAN_HandleTypeDef *hcan,DJI_Motor_Data_t DJI_Motors_Data[8])
 void DJI_Motor_Control_Single(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI_Motor_Type,uint16_t DJI_Motor_ID,int16_t Out);
 
 /**
+ * @brief 大疆双电机控制函数（针对6020电机）
+ * 
+ * @param hcan hcanx
+ * @param DJI_Motor_Type 电机型号 DJI_Motor_6020
+ * @param DJI_Motor_ID1 电机CAN-ID  6020：1~7
+ * @param Out1 输出值1 6020电压控制：-25000~0~25000
+ * @param DJI_Motor_ID2 电机CAN-ID  6020：1~7
+ * @param Out2 输出值2 6020电压控制：-25000~0~25000
+ */
+void DJI_Motor_Control_Double(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI_Motor_Type,uint8_t DJI_Motor_ID1,int16_t Out1,uint8_t DJI_Motor_ID2,int16_t Out2);
+
+/**
  * @brief 大疆电机获得角度函数
  * 
  * @param DJI_Motor_ID 电机CAN-ID  6020：1~7   3508：1~8
