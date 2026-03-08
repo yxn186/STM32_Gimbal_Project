@@ -100,30 +100,25 @@ void DJI_Motor_Init(CAN_HandleTypeDef *hcan,DJI_Motor_Data_t DJI_Motors_Data[8])
 }
 
 /**
- * @brief 大疆单电机控制函数
+ * @brief 大疆单电机控制数据推送函数
  * 
- * @param hcan hcanx
- * @param DJI_Motor_Type 电机型号 DJI_Motor_6020 / DJI_Motor_3508
- * @param DJI_Motor_ID 电机CAN-ID  6020：1~7   3508：1~8
- * @param Out 输出值 6020电压控制：-25000~0~25000   3508电流控制：-16384~0~16384
+ * @param hcan 
+ * @param DJI_Motor_Type 
+ * @param DJI_Motor_ID 
+ * @param Out 
  */
-void DJI_Motor_Control_Single(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI_Motor_Type,uint16_t DJI_Motor_ID,int16_t Out)
+void DJI_Motor_Control_Single_Push_Data(DJI_Motor_Type_Typedef DJI_Motor_Type,uint16_t DJI_Motor_ID,int16_t Out)
 {
     uint8_t *TxData = NULL;
 
-    uint16_t TxID = 0;
-
-    //1 判断电机型号 赋值发送ID和限幅Out
     if(DJI_Motor_Type == DJI_Motor_6020)
     {
         if(DJI_Motor_ID > 0 && DJI_Motor_ID <= 4)
         {
-            TxID = 0x1FF;
             TxData = TxData_1FF;
         }
         else if(DJI_Motor_ID > 4 && DJI_Motor_ID <= 7)
         {
-            TxID = 0x2FF;
             TxData = TxData_2FF;
             DJI_Motor_ID = DJI_Motor_ID - 4;
         }
@@ -141,12 +136,10 @@ void DJI_Motor_Control_Single(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI
     {
         if(DJI_Motor_ID > 0 && DJI_Motor_ID <= 4)
         {
-            TxID = 0x200;
             TxData = TxData_200;
         }
         else if(DJI_Motor_ID > 4 && DJI_Motor_ID <= 8)
         {
-            TxID = 0x1FF;
             TxData = TxData_1FF;
             DJI_Motor_ID = DJI_Motor_ID - 4;
         }
@@ -161,16 +154,69 @@ void DJI_Motor_Control_Single(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI
         }
     }
 
+    if(TxData == NULL)
+    {
+        return;
+    }
+
+    uint8_t DJI_Motor_ID_Temp = (uint8_t)(DJI_Motor_ID - 1);
+    TxData[2*DJI_Motor_ID_Temp]   = (uint8_t)((uint16_t)Out >> 8);
+    TxData[2*DJI_Motor_ID_Temp+1] = (uint8_t)((uint16_t)Out);
+}
+
+/**
+ * @brief 大疆单电机控制函数
+ * 
+ * @param hcan hcanx
+ * @param DJI_Motor_Type 电机型号 DJI_Motor_6020 / DJI_Motor_3508
+ * @param DJI_Motor_ID 电机CAN-ID  6020：1~7   3508：1~8
+ * @param Out 输出值 6020电压控制：-25000~0~25000   3508电流控制：-16384~0~16384
+ */
+void DJI_Motor_Control_Single(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI_Motor_Type,uint16_t DJI_Motor_ID,int16_t Out)
+{
+    uint16_t TxID = 0;
+    uint8_t *TxData = NULL;
+
+    DJI_Motor_Control_Single_Push_Data(DJI_Motor_Type,DJI_Motor_ID,Out);
+
+    //1 判断电机型号 赋值发送ID和限幅Out
+    if(DJI_Motor_Type == DJI_Motor_6020)
+    {
+        if(DJI_Motor_ID > 0 && DJI_Motor_ID <= 4)
+        {
+            TxID = 0x1FF;
+            TxData = TxData_1FF;
+        }
+        else if(DJI_Motor_ID > 4 && DJI_Motor_ID <= 7)
+        {
+            TxID = 0x2FF;
+            TxData = TxData_2FF;
+        }
+    }
+    else if(DJI_Motor_Type == DJI_Motor_3508)
+    {
+        if(DJI_Motor_ID > 0 && DJI_Motor_ID <= 4)
+        {
+            TxID = 0x200;
+            TxData = TxData_200;
+        }
+        else if(DJI_Motor_ID > 4 && DJI_Motor_ID <= 8)
+        {
+            TxID = 0x1FF;
+            TxData = TxData_1FF;
+        }
+    }
+    if(TxData == NULL)
+    {
+        return;
+    }
+
     if(TxID == 0)//防炸
     {
         return;
     }
 
     //2 数据处理 
-    uint8_t DJI_Motor_ID_Temp = (uint8_t)(DJI_Motor_ID - 1);
-    TxData[2*DJI_Motor_ID_Temp]   = (uint8_t)((uint16_t)Out >> 8);
-    TxData[2*DJI_Motor_ID_Temp+1] = (uint8_t)((uint16_t)Out);
-
     CAN_Send_Data(hcan,TxID,TxData,8);
 }
 
@@ -186,8 +232,9 @@ void DJI_Motor_Control_Single(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI
  */
 void DJI_Motor_Control_Double(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI_Motor_Type,uint8_t DJI_Motor_ID1,int16_t Out1,uint8_t DJI_Motor_ID2,int16_t Out2)
 {
-    uint8_t *TxData = NULL;
+    if(DJI_Motor_Type != DJI_Motor_6020) return;
 
+    uint8_t *TxData = NULL;
     uint16_t TxID = 0;
 
     if(Out1 >= DJI_Motor_6020_Out_Max)
@@ -243,6 +290,55 @@ void DJI_Motor_Control_Double(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI
     {
         DJI_Motor_Control_Single(hcan,DJI_Motor_Type,DJI_Motor_ID1,Out1);
         DJI_Motor_Control_Single(hcan,DJI_Motor_Type,DJI_Motor_ID2,Out2);
+    }
+}
+
+/**
+ * @brief 大疆四电机控制函数（针对3508电机）
+ * 
+ * @param hcan 
+ * @param DJI_Motor_Type 
+ * @param DJI_Motor_ID1 
+ * @param Out1 
+ * @param DJI_Motor_ID2 
+ * @param Out2 
+ * @param DJI_Motor_ID3 
+ * @param Out3 
+ * @param DJI_Motor_ID4 
+ * @param Out4 
+ */
+void DJI_Motor_Control_Four(CAN_HandleTypeDef *hcan,DJI_Motor_Type_Typedef DJI_Motor_Type,uint8_t DJI_Motor_ID1,int16_t Out1,uint8_t DJI_Motor_ID2,int16_t Out2
+                                                                                         ,uint8_t DJI_Motor_ID3,int16_t Out3,uint8_t DJI_Motor_ID4,int16_t Out4)
+{
+    if(DJI_Motor_Type != DJI_Motor_3508) return;
+
+    uint8_t need_send_200 = 0;
+    uint8_t need_send_1FF = 0;
+
+    if((DJI_Motor_ID1 == 0 || DJI_Motor_ID1 > 8) ||
+        (DJI_Motor_ID2 == 0 || DJI_Motor_ID2 > 8) ||
+        (DJI_Motor_ID3 == 0 || DJI_Motor_ID3 > 8) ||
+        (DJI_Motor_ID4 == 0 || DJI_Motor_ID4 > 8))
+    {
+        return;
+    }
+
+    need_send_200 = (DJI_Motor_ID1 <= 4) || (DJI_Motor_ID2 <= 4) || (DJI_Motor_ID3 <= 4) || (DJI_Motor_ID4 <= 4);
+    need_send_1FF = (DJI_Motor_ID1 > 4) || (DJI_Motor_ID2 > 4) || (DJI_Motor_ID3 > 4) || (DJI_Motor_ID4 > 4);
+
+    DJI_Motor_Control_Single_Push_Data(DJI_Motor_Type,DJI_Motor_ID1,Out1);
+    DJI_Motor_Control_Single_Push_Data(DJI_Motor_Type,DJI_Motor_ID2,Out2);
+    DJI_Motor_Control_Single_Push_Data(DJI_Motor_Type,DJI_Motor_ID3,Out3);
+    DJI_Motor_Control_Single_Push_Data(DJI_Motor_Type,DJI_Motor_ID4,Out4);
+
+    if(need_send_200)
+    {
+        CAN_Send_Data(hcan,0x200,TxData_200,8);
+    }
+
+    if(need_send_1FF)
+    {
+        CAN_Send_Data(hcan,0x1FF,TxData_1FF,8);
     }
 }
 

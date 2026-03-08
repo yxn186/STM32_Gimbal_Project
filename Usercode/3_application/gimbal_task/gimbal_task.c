@@ -29,8 +29,8 @@ bool init_finished = false;
 uint8_t Pitch_PID_Times;
 uint8_t Yaw_PID_Times;
 
-PID_t Pitch_Motor_PID ={0};
-PID_t Yaw_Motor_PID = {0};
+PID_Object_t Pitch_Motor_PID = {0};
+PID_Object_t Yaw_Motor_PID = {0};
 
 uint8_t ID1 = 1;
 uint8_t ID2 = 2;
@@ -38,7 +38,21 @@ uint8_t ID2 = 2;
 DJI_Motor_Data_t DJI_Motors_Data[8] = {0};
 
 //PID参数设置！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-
+void PID_Config(PID_Object_t *PID_Object)
+{
+  PID_Object->Kp_a = 0;
+  PID_Object->Ki_a = 0;
+  PID_Object->Kd_a = 0;
+  PID_Object->Kp_s = 0;
+  PID_Object->Ki_s = 0;
+  PID_Object->Kd_s = 0;
+  PID_Object->Out_High = 0;
+  PID_Object->Out_Low = -0;
+  PID_Object->ErrorInt_High_a = 0;
+  PID_Object->ErrorInt_Low_a = -0;
+  PID_Object->ErrorInt_High_s = 0;
+  PID_Object->ErrorInt_Low_s = -0;
+}
 /*  Task层自定义回调函数类型 --------------------------------------------------*/
 
 
@@ -82,16 +96,27 @@ void main_Task_1ms(void *argument)
   for(;;)
   {
     //接收target函数
+    // PID_Set_Angle_Target(&Pitch_Motor_PID, 0);
+    // PID_Set_Angle_Target(&Yaw_Motor_PID, 0);
+    // PID_Set_Speed_Target(&Pitch_Motor_PID, 0);
+    // PID_Set_Speed_Target(&Yaw_Motor_PID, 0);
 
+    //得到前向角 pitch和yaw 传给PID控制对象（增加个速度？）
     app_bmi088_1ms_task(&Pitch_Motor_PID,&Yaw_Motor_PID);
 
+    //DJI_Motor_Get_AngleSpeed
+    //DJI_Motor_Get_AngleSpeed
+
+
+    //双环PID控制
     //gimbal_pid_conrol();
 
 
-    //CAN数据发送函数
+    //CAN数据发送函数 这个要不要单拎？
     //DJI_Motor_Control_Double(&hcan1,DJI_Motor_6020,ID1,Pitch_Motor_PID.Out,ID2,Yaw_Motor_PID.Out);
 
-    //CAN数据接收 处理函数
+
+    //CAN数据接收 处理函数 中断发信号 好像会在can库中自己做好
 
     osDelay(1);
   }
@@ -107,7 +132,8 @@ void gimbal_task_init(void)
     USB_Init();
     //DJI_Motor_Init(&hcan1,DJI_Motors_Data);
     app_bmi088_init();
-    
+    PID_Config(&Pitch_Motor_PID);
+    PID_Config(&Yaw_Motor_PID);
 }
 
 uint8_t gimbal_task_init_loop(void)
@@ -121,12 +147,15 @@ void gimbal_pid_conrol(void)
   Pitch_PID_Times++;
   if(Pitch_PID_Times >= 10)
   {
+    Pitch_PID_Times = 0;
     PID_Control_Angle(&Pitch_Motor_PID);
   }
+
   PID_Control_Speed(&Yaw_Motor_PID);
   Yaw_PID_Times++;
   if(Yaw_PID_Times >= 10)
   {
+    Yaw_PID_Times = 0;
     PID_Control_Angle(&Yaw_Motor_PID);
   }
 }

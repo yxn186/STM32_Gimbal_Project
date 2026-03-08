@@ -16,7 +16,7 @@
  * 
  * @param PID_Object PID控制对象指针，包含配置参数和状态
  */
-void PID_Control_Speed(PID_t *PID_Object)
+void PID_Control_Speed(PID_Object_t *PID_Object)
 {
 	//获取误差
 	PID_Object->PID_Speed_Status.Error1 = PID_Object->PID_Speed_Status.Error0;
@@ -53,7 +53,7 @@ void PID_Control_Speed(PID_t *PID_Object)
  * 
  * @param PID_Object PID控制对象指针，包含配置参数和状态
  */
-void PID_Control_Angle(PID_t *PID_Object)
+void PID_Control_Angle(PID_Object_t *PID_Object)
 {
 	//获取误差
 	PID_Object->PID_Angle_Status.Error1 = PID_Object->PID_Angle_Status.Error0;
@@ -83,4 +83,27 @@ void PID_Control_Angle(PID_t *PID_Object)
 	{
 		PID_Object->Speed_Target = PID_Object->Speed_Target_Low;
 	}
+}
+
+
+/**
+ * @brief PID设置角度目标
+ * 
+ * @param PID_Object 
+ * @param Angle_Target 
+ */
+void PID_Set_Angle_Target(PID_Object_t *PID_Object, float Angle_Target)
+{
+	PID_Object->Angle_Target = Angle_Target;
+}
+
+/**
+ * @brief PID设置速度目标
+ * 
+ * @param PID_Object 
+ * @param Speed_Target 
+ */
+void PID_Set_Speed_Target(PID_Object_t *PID_Object, float Speed_Target)
+{
+	PID_Object->Speed_Target = Speed_Target;
 }

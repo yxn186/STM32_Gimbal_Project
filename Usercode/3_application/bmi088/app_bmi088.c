@@ -376,7 +376,7 @@ uint8_t app_bmi088_init_process_loop(void)
  * @brief BMI088 1ms周期任务 函数
  * 
  */
-void app_bmi088_1ms_task(PID_t *Pitch, PID_t *Yaw)
+void app_bmi088_1ms_task(PID_Object_t *Pitch, PID_Object_t *Yaw)
 {   
     if(bmi088_init_state == init_state_finish)//完成则进入任务循环
     {

@@ -57,22 +57,37 @@ typedef struct
 
     PID_Status_t PID_Angle_Status;
     PID_Status_t PID_Speed_Status;
-} PID_t;
+} PID_Object_t;
 
 /**
  * @brief PID控制 速度环
  * 
  * @param PID_Object PID控制对象指针，包含配置参数和状态
  */
-void PID_Control_Speed(PID_t *PID_Object);
+void PID_Control_Speed(PID_Object_t *PID_Object);
 
 /**
  * @brief PID控制 角度环
  * 
  * @param PID_Object PID控制对象指针，包含配置参数和状态
  */
-void PID_Control_Angle(PID_t *PID_Object);
+void PID_Control_Angle(PID_Object_t *PID_Object);
 
+/**
+ * @brief PID设置速度目标
+ * 
+ * @param PID_Object 
+ * @param Speed_Target 
+ */
+void PID_Set_Speed_Target(PID_Object_t *PID_Object, float Speed_Target);
+
+/**
+ * @brief PID设置角度目标
+ * 
+ * @param PID_Object 
+ * @param Angle_Target 
+ */
+void PID_Set_Angle_Target(PID_Object_t *PID_Object, float Angle_Target);
 
 #ifdef __cplusplus
 }

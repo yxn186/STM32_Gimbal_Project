@@ -1,7 +1,7 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file           : main.c
+  * @file           : main.cpp
   * @brief          : Main program body
   ******************************************************************************
   * @attention
@@ -105,7 +105,6 @@ int main(void)
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
 
-  //gimbal_task_init();
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -121,7 +120,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    //gimbal_task_loop();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
