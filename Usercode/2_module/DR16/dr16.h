@@ -48,17 +48,17 @@
  * @brief 遥控器DR16状态
  *
  */
-enum Enum_DR16_Status
+typedef enum
 {
     DR16_Status_DISABLE = 0,
     DR16_Status_ENABLE,
-};
+} Enum_DR16_Status;
 
 /**
  * @brief 拨动开关状态
  *
  */
-enum Enum_DR16_Switch_Status
+typedef enum 
 {
     DR16_Switch_Status_UP = 0,
     DR16_Switch_Status_TRIG_UP_MIDDLE,
@@ -67,19 +67,19 @@ enum Enum_DR16_Switch_Status
     DR16_Switch_Status_TRIG_MIDDLE_DOWN,
     DR16_Switch_Status_TRIG_DOWN_MIDDLE,
     DR16_Switch_Status_DOWN,
-};
+}Enum_DR16_Switch_Status;
 
 /**
  * @brief 按键状态
  *
  */
-enum Enum_DR16_Key_Status
+typedef enum 
 {
     DR16_Key_Status_FREE = 0,
     DR16_Key_Status_TRIG_FREE_PRESSED,
     DR16_Key_Status_TRIG_PRESSED_FREE,
     DR16_Key_Status_PRESSED,
-};
+}Enum_DR16_Key_Status;
 
 /**
  * @brief DR16源数据
@@ -533,5 +533,3 @@ inline float Class_DR16::Get_Yaw()
 }
 
 #endif
-
-/************************ COPYRIGHT(C) USTC-ROBOWALKER **************************/
