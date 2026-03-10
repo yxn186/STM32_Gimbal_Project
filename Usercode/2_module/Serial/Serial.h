@@ -51,7 +51,7 @@ void Serial_Tx_Callback_Function(UART_HandleTypeDef *huart);
  * @param Buffer 
  * @param Length 
  */
-void Serial_Rx_Callback_Function(uint8_t *Buffer, uint16_t Length);
+void Serial_Rx_Callback_Function(void *context, uint8_t *Buffer, uint16_t Length);
 
 /**
  * @brief Serial 初始化

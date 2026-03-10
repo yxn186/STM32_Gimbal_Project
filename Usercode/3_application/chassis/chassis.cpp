@@ -11,6 +11,8 @@
 #include "dr16.h"
 #include "MyMath.h"
 #include "PID.h"
+#include "DJI_Motor.h"
+#include <cstdint>
 
 #define wheel_s   0.0815                          //轮半径
 #define chassis_r 0.2125                          //底盘半径
@@ -19,7 +21,7 @@
 
 typedef struct
 {
-  //Vx Vy ω
+  //Vx Vy ω —目标值
   float Target_Speed_X;
   float Target_Speed_Y;
   float Target_AngleSpeed_w;
@@ -39,10 +41,28 @@ typedef struct
 
   float MotorCurrent_Out_K_Torque_to_Current;//比例系数经验性
 
+  float Motor_ID[4];
+  float Motor_Speed[4];
+
+  //Vx Vy ω —实际值
+  float Motor_Speed_X;
+  float Motor_Speed_Y;
+  float Motor_AngleSpeed_w;
+
+  PID_Object_t Motor_PID_X;
+  PID_Object_t Motor_PID_Y;
+  PID_Object_t Motor_PID_w;
+
 } chassis_t;
 
 void chassis_init(chassis_t *chassis)
 {
+  //设置ID
+  chassis->Motor_ID[0] = 1;
+  chassis->Motor_ID[1] = 2;
+  chassis->Motor_ID[2] = 3;
+  chassis->Motor_ID[3] = 4;
+
   chassis->Target_Speed_X = 0.0f;
   chassis->Target_Speed_Y = 0.0f;
   chassis->Target_AngleSpeed_w = 0.0f;
@@ -86,17 +106,50 @@ void chassis_motor_anglespeed_calculate(chassis_t *chassis)
   //之后交给pid 输出力矩
 }
 
+
 void chassis_anglespeed_pid_to_force_calculate(chassis_t *chassis)
 {
-  //待写
+  
 
-  //PID_Object_t Motor_PID[4];
-  //for (int i = 0; i < 4; i++)
+  for(uint8_t i = 0; i < 4; i++)
+  {
+    //获取当前速度
+    chassis->Motor_Speed[i] = DJI_Motor_Get_AngleSpeed(chassis->Motor_ID[i]);
 
-  //PID_Control_Speed
+    
+
+   // PID_Set_Speed_Target(&chassis->Motor_PID[i], chassis->Motor_Target_AngleSppeed[i]);
+    //获取数据环节
+
+    
+
+    //chassis->Motor_PID[i].Out 
+  }
+
+  //运动学正解算！！
+  //vx = (-ω0 - ω1 + ω2 + ω3) * √2 * s / 4
+  //vy = (ω0 - ω1 - ω2 + ω3) * √2 * s / 4
+  //ω = (ω0 + ω1 + ω2 + ω3) / r * s / 4
+  chassis->Motor_Speed_X = (-chassis->Motor_Speed[0] - chassis->Motor_Speed[1] + chassis->Motor_Speed[2] + chassis->Motor_Speed[3]) * SQRT2_OVER_4 * wheel_s;
+  chassis->Motor_Speed_Y = (chassis->Motor_Speed[0] - chassis->Motor_Speed[1] - chassis->Motor_Speed[2] + chassis->Motor_Speed[3]) * SQRT2_OVER_4 * wheel_s;
+  chassis->Motor_AngleSpeed_w = (float)((chassis->Motor_Speed[0] + chassis->Motor_Speed[1] + chassis->Motor_Speed[2] + chassis->Motor_Speed[3]) * wheel_s * 0.25) / chassis_r;
+
+
+  //数据push！ 待写！！！！！！！！！！！！！
+
+    PID_Control_Speed(&chassis->Motor_PID_X);
+    PID_Control_Speed(&chassis->Motor_PID_Y);
+    PID_Control_Speed(&chassis->Motor_PID_w);
+
+  //输出为力
+  chassis->Motor_Target_Force_X = chassis->Motor_PID_X.Out;
+  chassis->Motor_Target_Force_Y = chassis->Motor_PID_Y.Out;
+  chassis->Motor_Target_Force_T = chassis->Motor_PID_w.Out;
+}
+
 
   //之后交给力矩转电流的函数计算电流输出
-}
+
 
 /**
  * @brief 底盘电机力矩解算到电流输出值

@@ -190,11 +190,13 @@ public:
 
     inline float Get_Yaw();
 
+    static void UART_RxCpltCallback_Entry(void *context, uint8_t *Rx_Data, uint16_t Length);
+
     void UART_RxCpltCallback(uint8_t *Rx_Data, uint16_t Length);
 
-    void TIM_100ms_Alive_PeriodElapsedCallback();
+    void task_100ms_alive_detection();
 
-    void TIM_1ms_Calculate_PeriodElapsedCallback();
+    void task_1ms_data_calculate();
 
 protected:
     // 初始化相关常量
@@ -233,9 +235,9 @@ protected:
 
     void Data_Process(uint16_t Length);
 
-    void _Judge_Switch(Enum_DR16_Switch_Status *Switch, uint8_t Status, uint8_t Pre_Status);
+    void Judge_Switch(Enum_DR16_Switch_Status *Switch, uint8_t Status, uint8_t Pre_Status);
 
-    void _Judge_Key(Enum_DR16_Key_Status *Key, uint8_t Status, uint8_t Pre_Status);
+    void Judge_Key(Enum_DR16_Key_Status *Key, uint8_t Status, uint8_t Pre_Status);
 };
 
 /* Exported variables --------------------------------------------------------*/

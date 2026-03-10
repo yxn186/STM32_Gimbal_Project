@@ -130,7 +130,7 @@ void Serial_Init(UART_HandleTypeDef *huart)
         __HAL_DMA_DISABLE_IT(Serial_handle_global.huart->hdmarx, DMA_IT_HT);
     }
 
-    UART_Init(huart,Serial_Tx_Callback_Function,Serial_Rx_Callback_Function,Serial_RxBuffer_Size);
+    UART_Init(huart,Serial_Tx_Callback_Function,Serial_Rx_Callback_Function,Serial_RxBuffer_Size,NULL);
 }
 
 /**
@@ -399,8 +399,10 @@ void Serial_Tx_Callback_Function(UART_HandleTypeDef *huart)
  * @param Buffer 
  * @param Length 
  */
-void Serial_Rx_Callback_Function(uint8_t *Buffer, uint16_t Length)
+void Serial_Rx_Callback_Function(void *context, uint8_t *Buffer, uint16_t Length)
 {
+    (void)context;
+
     if(Serial_handle_global.huart == NULL)
     {
         return;
