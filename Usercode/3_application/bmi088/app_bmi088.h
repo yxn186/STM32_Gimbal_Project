@@ -48,7 +48,7 @@ void bmi088_calculate_task(void *argument);
  * @brief BMI088 1ms周期任务 函数
  * 
  */
-void app_bmi088_1ms_task(PID_Object_t *Pitch, PID_Object_t *Yaw);
+void app_bmi088_1ms_task_get_now_pitch_and_yaw(float *Yaw,float *Picth);
 
 #ifdef __cplusplus
 }

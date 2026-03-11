@@ -36,9 +36,56 @@ extern bool init_finished;
 
 void gimbal_task_init(void);
 uint8_t gimbal_task_init_loop(void);
-void gimbal_pid_conrol(void);
+void gimbal_pid_reset(void);
+void gimbal_target_init(void);
 
+//枚举
 
+/**
+ * @brief 云台状态枚举
+ * 
+ */
+typedef enum
+{
+  gimbal_states_sentry_mode = 0,
+  gimbal_states_aim_mode,
+} gimtal_states_e;
+
+/**
+ * @brief 哨兵模式速度目标变换设置函数
+ * 
+ * @return float 速度目标值
+ */
+float Speed_Target_Sentry(void);
+
+/**
+ * @brief 哨兵模式角度目标变换设置函数
+ * 
+ * @return float 角度目标值
+ */
+float Angle_Target_Sentry(void);
+
+/**
+ * @brief 哨兵模式目标变换设置函数
+ * 
+ */
+void Set_Yaw_and_Pitch_Motor_Target_Sentry();
+
+/**
+ * @brief Yaw电机设置角度和速度当前值
+ * 
+ * @param Angle 
+ * @param Speed 
+ */
+void Set_Yaw_Current_Angle_and_Speed(float Angle,float Speed);
+
+/**
+ * @brief Pitch电机设置角度和速度当前值
+ * 
+ * @param Angle 
+ * @param Speed 
+ */
+void Set_Pitch_Current_Angle_and_Speed(float Angle,float Speed);
 #ifdef __cplusplus
 }
 #endif

@@ -9,7 +9,6 @@
 /* Includes ------------------------------------------------------------------*/
 
 #include "dr16.h"
-#include <cstddef>
 #include <string.h>
 
 /* Private macros ------------------------------------------------------------*/
@@ -89,7 +88,7 @@ void Class_DR16::UART_RxCpltCallback(uint8_t *Rx_Data, uint16_t Length)
  * @brief 100ms定期检测遥控器DR16是否存活
  *
  */
-void Class_DR16::task_100ms_alive_detection()
+void Class_DR16::task_100ms_alive_detection(void)
 {
     // 判断该时间段内是否接收过遥控器DR16数据
     if (Flag == Pre_Flag)
@@ -111,7 +110,7 @@ void Class_DR16::task_100ms_alive_detection()
  * @brief 1ms计算数据函数
  *
  */
-void Class_DR16::task_1ms_data_calculate()
+void Class_DR16::task_1ms_data_calculate(void)
 {
     // 数据处理过程
     Struct_DR16_UART_Data *tmp_buffer = (Struct_DR16_UART_Data *) UART_Manage_Object->Rx_Buffer;

@@ -376,14 +376,14 @@ uint8_t app_bmi088_init_process_loop(void)
  * @brief BMI088 1ms周期任务 函数
  * 
  */
-void app_bmi088_1ms_task(PID_Object_t *Pitch, PID_Object_t *Yaw)
+void app_bmi088_1ms_task_get_now_pitch_and_yaw(float *Yaw,float *Picth)
 {   
     if(bmi088_init_state == init_state_finish)//完成则进入任务循环
     {
         //ZXY欧拉角转换为云台前向的pitch和yaw
         euler_extrinsic_ZXY_to_front_yaw_pitch_deg(yaw,roll,pitch,&gimbal_yaw,&gimbal_pitch);
-        Pitch->PID_Angle_Status.Current_Angle = gimbal_pitch;
-        Yaw->PID_Angle_Status.Current_Angle = gimbal_yaw;
+        *Picth = gimbal_pitch;
+        *Yaw = gimbal_yaw;
     }
 }
 

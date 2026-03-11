@@ -1,7 +1,7 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file    PID.c
+  * @file    PID.cpp
   * @brief   PID调控库
   ******************************************************************************
   */
@@ -9,6 +9,76 @@
 /* Includes ------------------------------------------------------------------*/
 #include "PID.h"
 
+/**
+ * @brief PID控制 速度环-->输出值
+ * @details 使用类内部的速度目标、速度反馈、PID参数和状态量进行计算
+ */
+void Class_PID::Control_Speed_To_Out(void)
+{
+	//获取误差
+	Speed_States.Error1 = Speed_States.Error0;
+	Speed_States.Error0 = Speed_Target - Speed_States.Current;
+	
+	//误差积分
+	Speed_States.ErrorInt += Speed_States.Error0;
+	
+	//积分限幅
+	Speed_States.ErrorInt = Limit(Speed_States.ErrorInt, ErrorInt_Low_s, ErrorInt_High_s);
+	
+	//执行控制
+	Out = Kp_s * Speed_States.Error0 + Ki_s * Speed_States.ErrorInt + Kd_s * (Speed_States.Error0 - Speed_States.Error1);
+	
+	Out = Limit(Out, Out_Low, Out_High);
+}
+
+
+/**
+ * @brief PID控制 角度环-->速度
+ * @details 使用类内部的角度目标、角度反馈、PID参数和状态量进行计算，
+ *          输出结果作为速度目标值 Speed_Target
+ */
+void Class_PID::Control_Angle_To_Speed(void)
+{
+	//获取误差
+	Angle_States.Error1 = Angle_States.Error0;
+	Angle_States.Error0 = Angle_Target - Angle_States.Current;
+	
+	//误差积分
+	Angle_States.ErrorInt += Angle_States.Error0;
+	
+	//积分限幅
+	Angle_States.ErrorInt = Limit(Angle_States.ErrorInt, ErrorInt_Low_a, ErrorInt_High_a);
+	
+	//执行控制
+	Speed_Target = Kp_a * Angle_States.Error0 + Ki_a * Angle_States.ErrorInt + Kd_a * (Angle_States.Error0 - Angle_States.Error1);
+	
+	Speed_Target = Limit(Speed_Target, Speed_Target_Low, Speed_Target_High);
+}
+
+/**
+ * @brief PID控制 串级控制
+ * @details 使用类内部的角度目标、角度反馈、PID参数和状态量进行计算
+ */
+void Class_PID::Control_Cascade(void)
+{
+	Control_Angle_To_Speed();
+	Control_Speed_To_Out();
+}
+
+/**
+ * @brief PID重置 目前只有重置积分项
+ * 
+ */
+void Class_PID::Reset(void)
+{
+	Angle_States.ErrorInt = 0;
+	Angle_States.Error0 = 0;
+	Angle_States.Error1 = 0;
+
+	Speed_States.ErrorInt = 0;
+	Speed_States.Error0 = 0;
+	Speed_States.Error1 = 0;
+}
 
 /**
  * @brief PID控制 速度环
@@ -105,4 +175,28 @@ void PID_Set_Angle_Target(PID_Object_t *PID_Object, float Angle_Target)
 void PID_Set_Speed_Target(PID_Object_t *PID_Object, float Speed_Target)
 {
 	PID_Object->Speed_Target = Speed_Target;
+}
+
+
+/**
+ * @brief 限幅函数
+ * 
+ * @param value 传入值
+ * @param low 最低
+ * @param high 最高
+ * @return float 限幅后值
+ */
+float Class_PID::Limit(float value, float low, float high)
+{
+    if (value > high)
+    {
+        return high;
+    }
+
+    if (value < low)
+    {
+        return low;
+    }
+
+    return value;
 }

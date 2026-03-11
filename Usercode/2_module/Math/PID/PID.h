@@ -21,6 +21,145 @@ extern "C" {
 
 /*YOUR CODE*/
 
+//cpp
+typedef struct
+{
+    float Current;
+    float Error0;
+    float Error1;
+    float ErrorInt;
+} PID_States_t;
+
+class Class_PID
+{
+    public:
+    // 目标值
+    float Speed_Target = 0.0f;
+    float Angle_Target = 0.0f;
+
+    // 最终输出
+    float Out = 0.0f;
+
+    // 速度环参数
+    float Kp_s = 0.0f;
+    float Ki_s = 0.0f;
+    float Kd_s = 0.0f;
+    float ErrorInt_High_s = 0.0f;
+    float ErrorInt_Low_s = 0.0f;
+    float Out_High = 0.0f;
+    float Out_Low = 0.0f;
+
+    // 角度环参数
+    float Kp_a = 0.0f;
+    float Ki_a = 0.0f;
+    float Kd_a = 0.0f;
+    float ErrorInt_High_a = 0.0f;
+    float ErrorInt_Low_a = 0.0f;
+    float Speed_Target_High = 0.0f;
+    float Speed_Target_Low = 0.0f;
+
+    // 状态
+    PID_States_t Angle_States{};
+    PID_States_t Speed_States{};
+
+    public:
+
+    /**
+     * @brief 设置速度环目标值
+     * @param target 速度目标值
+     */
+    void Set_Speed_Target(float target)
+    {
+        Speed_Target = target;
+    }
+
+    /**
+     * @brief 设置角度环目标值
+     * @param target 角度目标值
+     */
+    void Set_Angle_Target(float target)
+    {
+        Angle_Target = target;
+    }
+
+    /**
+     * @brief 设置速度环当前值
+     * @param current 速度当前值
+     */
+    void Set_Current_Speed(float current)
+    {
+        Speed_States.Current = current;
+    }
+
+    /**
+     * @brief 设置角度环当前值
+     * @param current 速度当前值
+     */
+    void Set_Current_Angle(float current)
+    {
+        Angle_States.Current = current;
+    }
+
+    /**
+     * @brief 获取输出值
+     * 
+     * @return float 输出值
+     */
+    float Get_Out(void) const
+    {
+        return Out;
+    }
+
+    /**
+     * @brief 获取速度目标值
+     * 
+     * @return float 速度目标值
+     */
+    float Get_Speed_Target(void) const
+    {
+        return Speed_Target;
+    }
+
+    /**
+    * @brief PID控制 速度环
+    * @details 使用类内部的速度目标、速度反馈、PID参数和状态量进行计算
+    */
+    void Control_Speed_To_Out(void);
+
+    /**
+    * @brief PID控制 角度环-->速度
+    * @details 使用类内部的角度目标、角度反馈、PID参数和状态量进行计算，
+    *          输出结果作为速度目标值 Speed_Target
+    */
+    void Control_Angle_To_Speed(void);
+
+    /**
+    * @brief PID控制 串级环
+    * @details 先执行角度环得到速度目标，再执行速度环得到最终输出
+    */
+    void Control_Cascade(void);   
+
+   /**
+    * @brief PID重置 目前只有重置积分项
+    * 
+    */
+    void Reset(void);
+
+    protected:
+
+    /**
+    * @brief 限幅函数
+    * 
+    * @param value 传入值
+    * @param low 最低
+    * @param high 最高
+    * @return float 限幅后值
+    */
+    float Limit(float value, float low, float high);
+};
+
+
+
 typedef struct
 {
     float Current_speed;

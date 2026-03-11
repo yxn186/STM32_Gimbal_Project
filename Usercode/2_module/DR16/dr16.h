@@ -194,9 +194,17 @@ public:
 
     void UART_RxCpltCallback(uint8_t *Rx_Data, uint16_t Length);
 
-    void task_100ms_alive_detection();
+    /**
+    * @brief 100ms定期检测遥控器DR16是否存活
+    *
+    */
+    void task_100ms_alive_detection(void);
 
-    void task_1ms_data_calculate();
+    /**
+    * @brief 1ms计算数据函数
+    *
+    */
+    void task_1ms_data_calculate(void);
 
 protected:
     // 初始化相关常量
