@@ -20,6 +20,129 @@ extern "C" {
 #include "main.h"
 #include "bsp_can.h"
 /*YOUR CODE*/
+class Class_DJI_Motor;
+
+/**
+ * @brief 大疆系电机型号枚举
+ * 
+ */
+typedef enum
+{
+    DJI_Motor_6020,
+    DJI_Motor_3508
+}DJI_Motor_Type_Typedef;
+
+/**
+ * @brief 大疆电机类 组
+ * 
+ */
+class Class_DJI_Motor_Group
+{
+public:
+    void Init(CAN_HandleTypeDef *hcan, DJI_Motor_Type_Typedef type);
+
+    void Register_Motor(Class_DJI_Motor *motor);
+
+    /**
+    * @brief 大疆电机上传数据给电机进行控制
+    * 
+    */
+    void Push_Data(void);
+
+    static void CAN_RxCallback_Entry(CAN_Rx_Buffer_t *RxBuffer);
+
+protected:
+
+    /**
+    * @brief 大疆电机回调函数
+    * 
+    * @param RxBuffer 
+    */
+    void CAN_RxCallback(CAN_Rx_Buffer_t *RxBuffer);
+    
+    /**
+    * @brief 大疆电机获取电机对应CAN-ID的起始ID
+    * 
+    * @return uint16_t 0x201--3508 0x205--6020
+    */
+    uint16_t Get_Rx_Start_ID(void) const;
+    
+    /**
+    * @brief 大疆电机获取低位ID发送数据CAN标识符
+    * 
+    * @return uint16_t 0x200--3508 0x1FF--6020
+    */
+    uint16_t Get_Tx_Low_ID(void) const;
+
+    /**
+    * @brief 大疆电机获取高位ID发送数据CAN标识符
+    * 
+    * @return uint16_t 0x200--3508 0x1FF--6020
+    */
+    uint16_t Get_Tx_High_ID(void) const;
+
+private:
+    CAN_HandleTypeDef *hcan = nullptr;
+    DJI_Motor_Type_Typedef Type = DJI_Motor_3508;
+
+    Class_DJI_Motor *Motor_List[8] = {nullptr};
+
+    uint8_t TxData_Low[8] = {0};
+    uint8_t TxData_High[8] = {0};
+
+    static Class_DJI_Motor_Group *Group_FIFO0;
+};
+
+/**
+ * @brief 大疆电机类
+ * 
+ */
+class Class_DJI_Motor
+{
+public:
+    void Init(DJI_Motor_Type_Typedef type, uint8_t id, Class_DJI_Motor_Group *group);
+
+    void Set_Out(int16_t out);
+
+    int16_t Get_Out() const
+    {
+        return Out;
+    }
+
+    float Get_Angle() const
+    {
+        return RawAngle * 0.0459453125f;//* 360.0 / 8192.0 返回度
+    }
+
+    float Get_AngleSpeed() const
+    {
+        return Speed_Rpm * 0.1047197533333f; // 60.0 * 2.0 * (3.1415926)
+    }
+
+    int16_t Get_Torque_Current() const;
+
+    uint8_t Get_Temperature() const;
+
+protected:
+    void FeedBack_Data(const CAN_Rx_Buffer_t *RxBuffer);
+    int16_t Limit_Out(int16_t out) const;
+
+private:
+    DJI_Motor_Type_Typedef Type = DJI_Motor_3508;
+    uint8_t ID = 0;
+    Class_DJI_Motor_Group *Group = nullptr;
+
+    uint16_t RawAngle = 0;
+    int16_t Speed_Rpm = 0;
+    int16_t Torque_Current = 0;
+    uint8_t Temperature = 0;
+
+    int16_t Out = 0;
+
+    friend class Class_DJI_Motor_Group;
+};
+
+//------------------------------------------------
 
 /* DJI电机ID宏定义 */
 //目前似乎没什么用
@@ -40,15 +163,7 @@ extern "C" {
 #define ID6_6020 0x20A
 #define ID7_6020 0x20B
 
-/**
- * @brief 大疆系电机型号枚举
- * 
- */
-typedef enum
-{
-    DJI_Motor_6020,
-    DJI_Motor_3508
-}DJI_Motor_Type_Typedef;
+
 
 /**
  * @brief 大疆系电机数据结构体

@@ -145,6 +145,9 @@ void main_Task_1ms(void *argument)
     if(gimtal_states == gimbal_states_aim_mode)//瞄准装甲板模式 接收视觉信息
     {
       gimbal_pid_reset();
+
+      //USB信息获取！！！！！！！！！！！！！！！！！
+      
       //Target获取 转成前向角
       //设置Target
     }

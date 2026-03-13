@@ -9,7 +9,144 @@
 /* Includes ------------------------------------------------------------------*/
 #include "DJI_Motor.h"
 #include "bsp_can.h"
+#include <cstring>
 #include <stdint.h>
+
+/**
+ * @brief 大疆电机获取电机对应CAN-ID的起始ID
+ * 
+ * @return uint16_t 0x201--3508 0x205--6020
+ */
+uint16_t Class_DJI_Motor_Group::Get_Rx_Start_ID(void) const
+{
+    return (Type == DJI_Motor_3508) ? 0x201 : 0x205;
+}
+
+/**
+ * @brief 大疆电机获取低位ID发送数据CAN标识符
+ * 
+ * @return uint16_t 0x200--3508 0x1FF--6020
+ */
+uint16_t Class_DJI_Motor_Group::Get_Tx_Low_ID(void) const
+{
+    return (Type == DJI_Motor_3508) ? 0x200 : 0x1FF;
+}
+
+/**
+ * @brief 大疆电机获取高位ID发送数据CAN标识符
+ * 
+ * @return uint16_t 0x200--3508 0x1FF--6020
+ */
+uint16_t Class_DJI_Motor_Group::Get_Tx_High_ID(void) const
+{
+    return (Type == DJI_Motor_3508) ? 0x1FF : 0x2FF;
+}
+
+/**
+ * @brief 大疆电机回调函数
+ * 
+ * @param RxBuffer 
+ */
+void Class_DJI_Motor_Group::CAN_RxCallback(CAN_Rx_Buffer_t *RxBuffer)
+{
+    uint16_t id = RxBuffer->Header.StdId;
+    uint16_t start_id = Get_Rx_Start_ID();
+
+    if (id < start_id || id >= start_id + 8)
+    {
+        return;
+    }
+
+    uint8_t index = (uint8_t)(id - start_id);
+
+    if (Motor_List[index] != nullptr)
+    {
+        Motor_List[index]->FeedBack_Data(RxBuffer);
+    }
+}
+
+/**
+ * @brief 大疆电机更新反馈数据
+ * 
+ * @param RxBuffer 
+ */
+void Class_DJI_Motor::FeedBack_Data(const CAN_Rx_Buffer_t *RxBuffer)
+{
+    RawAngle = (RxBuffer->Data[0] << 8) | RxBuffer->Data[1];
+    Speed_Rpm = (int16_t)(((uint16_t)RxBuffer->Data[2] << 8) | RxBuffer->Data[3]);
+    Torque_Current = (int16_t)(((uint16_t)RxBuffer->Data[4] << 8) | RxBuffer->Data[5]);
+    Temperature = RxBuffer->Data[6];
+}
+
+/**
+ * @brief 大疆电机设置输出值
+ * 
+ * @param out 
+ */
+void Class_DJI_Motor::Set_Out(int16_t out)
+{
+    Out = Limit_Out(out);
+}
+
+/**
+ * @brief 大疆电机上传数据给电机进行控制
+ * 
+ */
+void Class_DJI_Motor_Group::Push_Data(void)
+{
+    memset(TxData_Low,  0, 8);
+    memset(TxData_High, 0, 8);
+
+    uint8_t need_send_low = 0;
+    uint8_t need_send_high = 0;
+
+    uint8_t max_id = (Type == DJI_Motor_3508) ? 8 : 7;
+
+    for (uint8_t i = 0; i < max_id; i++)
+    {
+        if (Motor_List[i] == nullptr)
+        {
+            continue;
+        }
+
+        uint8_t ID = i + 1;
+        int16_t out = Motor_List[i]->Get_Out();
+
+        uint8_t *TxData = nullptr;
+        uint8_t Temp_ID = 0;
+
+        if (ID <= 4)
+        {
+            TxData = TxData_Low;
+            Temp_ID = ID - 1;
+            need_send_low = 1;
+        }
+        else
+        {
+            TxData = TxData_High;
+            Temp_ID = ID - 5;
+            need_send_high = 1;
+        }
+
+        TxData[2 * Temp_ID]     = (uint8_t)((uint16_t)out >> 8);
+        TxData[2 * Temp_ID + 1] = (uint8_t)((uint16_t)out);
+    }
+
+    if (need_send_low)
+    {
+        CAN_Send_Data(hcan, Get_Tx_Low_ID(), TxData_Low, 8);
+    }
+
+    if (need_send_high)
+    {
+        CAN_Send_Data(hcan, Get_Tx_High_ID(), TxData_High, 8);
+    }
+}
+
+
+
+
+//----------------------------------------------------------
 
 /**
  * @brief 基准ID 用3508选0x201 用6020选0x205

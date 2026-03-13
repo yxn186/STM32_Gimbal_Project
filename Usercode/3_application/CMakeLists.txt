@@ -21,7 +21,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/bmi088/app_bmi088.cpp
     ${CMAKE_CURRENT_LIST_DIR}/bmi088/app_bmi088_math.cpp
     ${CMAKE_CURRENT_LIST_DIR}/gimbal_task/gimbal_task.cpp
-    #${CMAKE_CURRENT_LIST_DIR}/bmi088/chassis.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/chassis/chassis.cpp
 )
 
 # ============================================================
