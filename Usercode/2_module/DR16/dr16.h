@@ -48,17 +48,17 @@
  * @brief 遥控器DR16状态
  *
  */
-enum Enum_DR16_Status
+typedef enum
 {
     DR16_Status_DISABLE = 0,
     DR16_Status_ENABLE,
-};
+} Enum_DR16_Status;
 
 /**
  * @brief 拨动开关状态
  *
  */
-enum Enum_DR16_Switch_Status
+typedef enum 
 {
     DR16_Switch_Status_UP = 0,
     DR16_Switch_Status_TRIG_UP_MIDDLE,
@@ -67,19 +67,19 @@ enum Enum_DR16_Switch_Status
     DR16_Switch_Status_TRIG_MIDDLE_DOWN,
     DR16_Switch_Status_TRIG_DOWN_MIDDLE,
     DR16_Switch_Status_DOWN,
-};
+}Enum_DR16_Switch_Status;
 
 /**
  * @brief 按键状态
  *
  */
-enum Enum_DR16_Key_Status
+typedef enum 
 {
     DR16_Key_Status_FREE = 0,
     DR16_Key_Status_TRIG_FREE_PRESSED,
     DR16_Key_Status_TRIG_PRESSED_FREE,
     DR16_Key_Status_PRESSED,
-};
+}Enum_DR16_Key_Status;
 
 /**
  * @brief DR16源数据
@@ -190,11 +190,21 @@ public:
 
     inline float Get_Yaw();
 
+    static void UART_RxCpltCallback_Entry(void *context, uint8_t *Rx_Data, uint16_t Length);
+
     void UART_RxCpltCallback(uint8_t *Rx_Data, uint16_t Length);
 
-    void TIM_100ms_Alive_PeriodElapsedCallback();
+    /**
+    * @brief 100ms定期检测遥控器DR16是否存活
+    *
+    */
+    void task_100ms_alive_detection(void);
 
-    void TIM_1ms_Calculate_PeriodElapsedCallback();
+    /**
+    * @brief 1ms计算数据函数
+    *
+    */
+    void task_1ms_data_calculate(void);
 
 protected:
     // 初始化相关常量
@@ -233,9 +243,9 @@ protected:
 
     void Data_Process(uint16_t Length);
 
-    void _Judge_Switch(Enum_DR16_Switch_Status *Switch, uint8_t Status, uint8_t Pre_Status);
+    void Judge_Switch(Enum_DR16_Switch_Status *Switch, uint8_t Status, uint8_t Pre_Status);
 
-    void _Judge_Key(Enum_DR16_Key_Status *Key, uint8_t Status, uint8_t Pre_Status);
+    void Judge_Key(Enum_DR16_Key_Status *Key, uint8_t Status, uint8_t Pre_Status);
 };
 
 /* Exported variables --------------------------------------------------------*/
@@ -533,5 +543,3 @@ inline float Class_DR16::Get_Yaw()
 }
 
 #endif
-
-/************************ COPYRIGHT(C) USTC-ROBOWALKER **************************/

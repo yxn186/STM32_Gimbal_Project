@@ -4,6 +4,7 @@
 /build/
 /build-vscode/
 /Debug/
+/build-vscode/
 /Release/
 /*.bin
 /*.elf

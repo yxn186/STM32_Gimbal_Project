@@ -130,7 +130,7 @@ void Serial_Init(UART_HandleTypeDef *huart)
         __HAL_DMA_DISABLE_IT(Serial_handle_global.huart->hdmarx, DMA_IT_HT);
     }
 
-    UART_Init(huart,Serial_Tx_Callback_Function,Serial_Rx_Callback_Function,Serial_RxBuffer_Size);
+    UART_Init(huart,Serial_Tx_Callback_Function,Serial_Rx_Callback_Function,Serial_RxBuffer_Size,NULL);
 }
 
 /**
@@ -307,6 +307,17 @@ void Serial_Printf(const char *format, ...)
     (void)Serial_Write_To_TxBuffer((const uint8_t *)Printf_Temp_Buffer, (uint16_t)length);
 }
 
+/**
+ * @brief 串口发送数据函数
+ * 
+ * @param data 要发送的数据指针
+ * @param length 要发送的数据长度
+ */
+void Serial_Send_Data(const uint8_t *data, uint16_t length)
+{
+    Serial_Write_To_TxBuffer(data, length);
+}
+
 /* ============================================================
  * 对外接口：Rx 环形缓冲区读取
  * ============================================================ */
@@ -388,8 +399,10 @@ void Serial_Tx_Callback_Function(UART_HandleTypeDef *huart)
  * @param Buffer 
  * @param Length 
  */
-void Serial_Rx_Callback_Function(uint8_t *Buffer, uint16_t Length)
+void Serial_Rx_Callback_Function(void *context, uint8_t *Buffer, uint16_t Length)
 {
+    (void)context;
+
     if(Serial_handle_global.huart == NULL)
     {
         return;

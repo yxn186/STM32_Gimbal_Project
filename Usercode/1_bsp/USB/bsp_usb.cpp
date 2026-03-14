@@ -48,10 +48,14 @@ void USB_Serial_Callback(uint8_t *Buffer, uint16_t Length)
  *
  * @param Callback_Function 处理回调函数
  */
-void USB_Init(void)
+void USB_Init(USB_Callback USB_Callback_Funtion)
 {
-    USB0_Manage_Object.Callback_Function = USB_Serial_Callback;
+    //设置回调函数参数
+    //USB0_Manage_Object.Callback_Function = USB_Serial_Callback;
 
+    //自己设置回调
+    USB0_Manage_Object.Callback_Function = USB_Callback_Funtion;
+    
     USB0_Manage_Object.Rx_Buffer_Active = UserRxBufferFS;
 }
 

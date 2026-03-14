@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file    app_bmi088_math.c
+  * @file    bmi088_math.c
   * @brief   bmi088解算
   ******************************************************************************
   */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
-#include "app_bmi088_math.h"
+#include "bmi088_math.h"
 #include <math.h>
 #include "MyMath.h"
 #include <stdint.h>
 #include "MahonyAHRS.h"
 
-/* ===================== 量程/灵敏度（与你现在的配置一致） ===================== */
+/* ===================== 量程/灵敏度 ===================== */
 #define BMI088_GYRO_LSB_PER_DPS_2000   (16.384f)   /* ±2000 dps */
 #define BMI088_ACC_LSB_PER_G_6G        (5460.0f)   /* ±6g */
 
@@ -23,7 +23,7 @@
 /* 加速度幅值门限（运动/震动时不使用 acc 修正） */
 #define BMI088_ACC_NORM_MIN_G          (0.70f)
 #define BMI088_ACC_NORM_MAX_G          (1.30f)
-
+//↑把ACC数据归一化 来框限acc参考
 
 
 /* ===================== 姿态输出（单位：度） ===================== */
@@ -32,7 +32,8 @@ static float bmi088_pitch_angle_deg       = 0.0f;
 static float bmi088_yaw_angle_deg         = 0.0f;
 static float bmi088_real_pitch_angle_deg  = 0.0f;
 
-/* 用于“启动阶段 Alpha 强一点”的计时 */
+
+/* 用于“启动阶段 Alpha 强一点”的计时 已弃用 */
 static float bmi088_filter_elapsed_ms = 0.0f;
 
 /**
@@ -78,7 +79,8 @@ typedef struct
 static bmi088_biascalibration_t bmi088_biascalibration = {0};
 
 
-/* ===================== 工具：raw -> 单位 ===================== */
+/* ===================== 工具函数：raw -> 单位 ===================== */
+
 /**
  * @brief BMI088数据转换函数（gyro：转换为dps acc：转换为g-重力加速度）
  * 
@@ -262,10 +264,20 @@ uint8_t bmi088_biascalibration_pushsampletocalculate(int16_t gyro_raw_x,int16_t 
     return 1;
 }
 
-uint32_t bmi088_getbiascalibration_target_samples(void)          { return bmi088_biascalibration.biascalibration_target_samples; }
-uint32_t bmi088_getbiascalibration_current_samples(void)          { return bmi088_biascalibration.biascalibration_current_samples; }
-uint32_t bmi088_getbiascalibration_current_samples_effective(void)          { return bmi088_biascalibration.biascalibration_current_samples_effective; }
+uint32_t bmi088_getbiascalibration_target_samples(void)          
+{ 
+    return bmi088_biascalibration.biascalibration_target_samples; 
+}
 
+uint32_t bmi088_getbiascalibration_current_samples(void)          
+{ 
+    return bmi088_biascalibration.biascalibration_current_samples; 
+}
+
+uint32_t bmi088_getbiascalibration_current_samples_effective(void)          
+{ 
+    return bmi088_biascalibration.biascalibration_current_samples_effective; 
+}
 
 float acc_norm_mahony;
 
@@ -314,6 +326,14 @@ void bmi088_mahony(int16_t gyro_raw_x,int16_t gyro_raw_y,int16_t gyro_raw_z,int1
     }
 }
 
+/**
+ * @brief 限幅
+ * 
+ * @param v 
+ * @param lo 
+ * @param hi 
+ * @return float 
+ */
 static inline float clampf(float v, float lo, float hi)
 {
     return (v < lo) ? lo : (v > hi) ? hi : v;
@@ -510,6 +530,15 @@ void euler_extrinsic_ZXY_to_intrinsic_ZXY_deg(float ex_z_deg, float ex_x_deg, fl
     if (in_y_deg) *in_y_deg = in_y * RAD2DEG;
 }
 
+/**
+ * @brief ZYX欧拉角输出前向轴Yaw and Pitch
+ * 
+ * @param ex_z_deg 
+ * @param ex_y_deg 
+ * @param ex_x_deg 
+ * @param yaw_deg 
+ * @param pitch_deg 
+ */
 void euler_extrinsic_ZYX_to_front_yaw_pitch_deg(float ex_z_deg, float ex_y_deg, float ex_x_deg,float *yaw_deg, float *pitch_deg)
 {
     // deg -> rad
@@ -533,6 +562,15 @@ void euler_extrinsic_ZYX_to_front_yaw_pitch_deg(float ex_z_deg, float ex_y_deg, 
     if (pitch_deg) *pitch_deg = pitch * RAD2DEG;
 }
 
+/**
+ * @brief ZXY欧拉角输出前向轴Yaw and Pitch
+ * 
+ * @param ex_z_deg 
+ * @param ex_x_deg 
+ * @param ex_y_deg 
+ * @param yaw_deg 
+ * @param pitch_deg 
+ */
 void euler_extrinsic_ZXY_to_front_yaw_pitch_deg(float ex_z_deg, float ex_x_deg, float ex_y_deg,float *yaw_deg, float *pitch_deg)
 {
     float z = ex_z_deg * DEG2RAD;
@@ -556,19 +594,67 @@ void euler_extrinsic_ZXY_to_front_yaw_pitch_deg(float ex_z_deg, float ex_x_deg, 
 }
 
 /* ===================== 数据接口 ===================== */
-float BMI088_GetRollDeg(void)          { return bmi088_roll_angle_deg; }
-float BMI088_GetPitchDeg(void)         { return bmi088_pitch_angle_deg; }
-float BMI088_GetYawDeg(void)           { return bmi088_yaw_angle_deg; }
-float BMI088_GetRealPitchDeg(void)     { return bmi088_real_pitch_angle_deg; }
+float BMI088_GetRollDeg(void)          
+{ 
+    return bmi088_roll_angle_deg; 
+}
 
+float BMI088_GetPitchDeg(void)         
+{ 
+    return bmi088_pitch_angle_deg; 
+}
 
-uint8_t bmi088_get_biascalibration_finish_flag(void)  { return bmi088_biascalibration.biascalibration_finish_flag; }
+float BMI088_GetYawDeg(void)           
+{ 
+    return bmi088_yaw_angle_deg; 
+}
+
+float BMI088_GetRealPitchDeg(void)     
+{ 
+    return bmi088_real_pitch_angle_deg; 
+}
+
+uint8_t bmi088_get_biascalibration_finish_flag(void)  
+{ 
+    return bmi088_biascalibration.biascalibration_finish_flag; 
+}
 
 
 
 //---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
+//---------------------------------已弃用------------------------------
 
-/* ===================== 互补滤波参数（模仿你 6050 的写法） ===================== */
+
+
+
+
+
+/* ===================== 互补滤波参数 ===================== */
 /* 6050 里：Timer_ms < 1500 -> Alpha=0.70，否则 Alpha=0.25
    这里用 dt_seconds 累积时间实现同样效果 */
 #define BMI088_ALPHA_STRONG            (0.70f)

@@ -10,6 +10,7 @@
 #include "bmi088.h"
 #include "bmi088reg.h"
 #include "bsp_spi.h"
+#include <cstdint>
 #include <string.h>
 
 static bmi088_handle_t *bmi088_handle_global = NULL;
@@ -386,35 +387,39 @@ static void bmi088_spi_txrx_internal_callback(uint8_t read_reg_address, uint8_t 
  * 
  * @param handle BMI088句柄指针
  * @param acc_get_raw_data_finishedfunction 读取完成回调（三轴int16原始值）
+ * @return uint8_t 执行是否成功
  */
-void bmi088_get_acc_raw_data(bmi088_handle_t *handle,bmi088_acc_get_raw_data_finishedfunction acc_get_raw_data_finishedfunction)
+uint8_t bmi088_get_acc_raw_data(bmi088_handle_t *handle,bmi088_acc_get_raw_data_finishedfunction acc_get_raw_data_finishedfunction)
 {
-  if (handle == NULL) return;
-  if (handle->hspi == NULL) return;
-  if (handle->current_operation != bmi088_no_operation) return;
+  if (handle == NULL) return 0;
+  if (handle->hspi == NULL) return 0;
+  if (handle->current_operation != bmi088_no_operation) return 0;
 
   handle->acc_get_raw_data_finishedfunction = acc_get_raw_data_finishedfunction;
 
   /* 从 0x12 连续读 6 字节：0x12~0x17 (X_L X_H Y_L Y_H Z_L Z_H) */
   bmi088_acc_read_reg(handle,BMI088_ACCEL_XOUT_L,handle->acc_raw_data_rx_buffer,6,bmi088_spi_txrx_internal_callback);
+  return 1;
 }
 
 /**
  * @brief bmi088_get_gyro_raw_data 获取gyro原始角速度（X/Y/Z，共6字节）
  * 
  * @param handle BMI088句柄指针
- * @param gyro_raw_data_finishedfunction 读取完成回调（三轴int16原始值）
+ * @param gyro_get_raw_data_finishedfunction 读取完成回调（三轴int16原始值）
+ * @return uint8_t 执行是否成功
  */
-void bmi088_get_gyro_raw_data(bmi088_handle_t *handle,bmi088_gyro_get_raw_data_finishedfunction gyro_get_raw_data_finishedfunction)
+uint8_t bmi088_get_gyro_raw_data(bmi088_handle_t *handle,bmi088_gyro_get_raw_data_finishedfunction gyro_get_raw_data_finishedfunction)
 {
-  if (handle == NULL) return;
-  if (handle->hspi == NULL) return;
-  if (handle->current_operation != bmi088_no_operation) return;
+  if (handle == NULL) return 0;
+  if (handle->hspi == NULL) return 0;
+  if (handle->current_operation != bmi088_no_operation) return 0;
 
   handle->gyro_get_raw_data_finishedfunction = gyro_get_raw_data_finishedfunction;
 
   /* 从 0x02 连续读 6 字节：0x02~0x07 (X_L X_H Y_L Y_H Z_L Z_H) */
   bmi088_gyro_read_reg(handle,BMI088_GYRO_X_L,handle->gyro_raw_data_rx_buffer,6,bmi088_spi_txrx_internal_callback);
+  return 1;
 }
 
 /**

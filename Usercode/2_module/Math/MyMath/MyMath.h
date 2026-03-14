@@ -25,8 +25,8 @@ extern "C" {
 #define RAD2DEG (57.295779513f)  // 180°/3.1415926
 #define DEG2RAD (0.01745329252f) // 3.14/180°
 
-
-
+#define SQRT2_OVER_2 0.70710678f //二分之根号二
+#define SQRT2_OVER_4 0.35355339f //四分之根号二
 
 
 #ifdef __cplusplus
