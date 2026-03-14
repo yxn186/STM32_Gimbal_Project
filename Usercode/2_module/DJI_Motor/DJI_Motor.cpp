@@ -12,6 +12,55 @@
 #include <cstring>
 #include <stdint.h>
 
+Class_DJI_Motor_Group *Class_DJI_Motor_Group::Group_FIFO0 = nullptr;
+
+/**
+ * @brief 大疆电机组初始化
+ * 
+ * @param hcan hcanx
+ * @param Motor_Type 电机型号 DJI_Motor_6020 / DJI_Motor_3508
+ */
+void Class_DJI_Motor_Group::Init(CAN_HandleTypeDef *hcan, DJI_Motor_Type_Typedef Motor_Type)
+{
+    this->hcan = hcan;
+    this->Type = Motor_Type;
+
+    memset(Motor_List, 0, sizeof(Motor_List));
+    memset(TxData_Low, 0, sizeof(TxData_Low));
+    memset(TxData_High, 0, sizeof(TxData_High));
+
+    Group_FIFO0 = this;
+
+    CAN_Register_RxCallBack_FIFO0_Function(CAN_RxCallback_Entry);
+    CAN_Filter_Mask_Config(hcan, CAN_FILTER(0) | CAN_FIFO_0 | CAN_STDID | CAN_DATA_TYPE, 0x200, 0x7E0);
+    CAN_Init(hcan);
+}
+
+/**
+ * @brief 大疆电机初始化函数
+ * 
+ * @param Motor_Type 电机型号 DJI_Motor_6020 / DJI_Motor_3508
+ * @param Motor_ID 电机ID
+ * @param group 电机组
+ */
+void Class_DJI_Motor::Init(DJI_Motor_Type_Typedef Motor_Type, uint8_t Motor_ID, Class_DJI_Motor_Group *group)
+{
+    Type = Motor_Type;
+    ID = Motor_ID;
+    Group = group;
+
+    RawAngle = 0;
+    Speed_Rpm = 0;
+    Torque_Current = 0;
+    Temperature = 0;
+    Out = 0;
+
+    if (Group != nullptr)
+    {
+        Group->Register_Motor(this);
+    }
+}
+
 /**
  * @brief 大疆电机获取电机对应CAN-ID的起始ID
  * 
@@ -43,6 +92,21 @@ uint16_t Class_DJI_Motor_Group::Get_Tx_High_ID(void) const
 }
 
 /**
+ * @brief 大疆电机接收回调进入函数
+ * 
+ * @param RxBuffer 
+ */
+void Class_DJI_Motor_Group::CAN_RxCallback_Entry(CAN_Rx_Buffer_t *RxBuffer)
+{
+    if (Group_FIFO0 == nullptr)
+    {
+        return;
+    }
+
+    Group_FIFO0->CAN_RxCallback(RxBuffer);
+}
+
+/**
  * @brief 大疆电机回调函数
  * 
  * @param RxBuffer 
@@ -66,6 +130,34 @@ void Class_DJI_Motor_Group::CAN_RxCallback(CAN_Rx_Buffer_t *RxBuffer)
 }
 
 /**
+ * @brief 大疆电机注册电机函数
+ * 
+ * @param motor Class_DJI_Motor类地址
+ */
+void Class_DJI_Motor_Group::Register_Motor(Class_DJI_Motor *motor)
+{
+    if (motor == nullptr)
+    {
+        return;
+    }
+
+    if (motor->Type != Type)
+    {
+        return;
+    }
+
+    uint8_t max_id = (Type == DJI_Motor_3508) ? 8 : 7;
+
+    if (motor->ID == 0 || motor->ID > max_id)
+    {
+        return;
+    }
+
+    Motor_List[motor->ID - 1] = motor;
+    motor->Group = this;
+}
+
+/**
  * @brief 大疆电机更新反馈数据
  * 
  * @param RxBuffer 
@@ -76,6 +168,40 @@ void Class_DJI_Motor::FeedBack_Data(const CAN_Rx_Buffer_t *RxBuffer)
     Speed_Rpm = (int16_t)(((uint16_t)RxBuffer->Data[2] << 8) | RxBuffer->Data[3]);
     Torque_Current = (int16_t)(((uint16_t)RxBuffer->Data[4] << 8) | RxBuffer->Data[5]);
     Temperature = RxBuffer->Data[6];
+}
+
+/**
+ * @brief 大疆系电机限幅函数
+ * 
+ * @param out 
+ * @return int16_t 
+ */
+int16_t Class_DJI_Motor::Limit_Out(int16_t out) const
+{
+    if (Type == DJI_Motor_6020)
+    {
+        if (out > 25000)
+        {
+            return 25000;
+        }
+        if (out < -25000)
+        {
+            return -25000;
+        }
+    }
+    else if (Type == DJI_Motor_3508)
+    {
+        if (out > 16384)
+        {
+            return 16384;
+        }
+        if (out < -16384)
+        {
+            return -16384;
+        }
+    }
+
+    return out;
 }
 
 /**
@@ -144,8 +270,8 @@ void Class_DJI_Motor_Group::Push_Data(void)
 }
 
 
-
-
+//----------------------------------------------------------
+//↓旧版C语言大疆电机库 已弃用 先留存
 //----------------------------------------------------------
 
 /**

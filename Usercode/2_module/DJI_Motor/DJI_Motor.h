@@ -49,6 +49,11 @@ public:
     */
     void Push_Data(void);
 
+    /**
+    * @brief 大疆电机接收回调进入函数
+    * 
+    * @param RxBuffer 
+    */
     static void CAN_RxCallback_Entry(CAN_Rx_Buffer_t *RxBuffer);
 
 protected:
@@ -119,12 +124,25 @@ public:
         return Speed_Rpm * 0.1047197533333f; // 60.0 * 2.0 * (3.1415926)
     }
 
-    int16_t Get_Torque_Current() const;
+    int16_t Get_Torque_Current() const
+    {
+        return Torque_Current;
+    }
 
-    uint8_t Get_Temperature() const;
+    uint8_t Get_Temperature() const
+    {
+        return Temperature;
+    }
 
 protected:
     void FeedBack_Data(const CAN_Rx_Buffer_t *RxBuffer);
+
+    /**
+    * @brief 大疆系电机限幅函数
+    * 
+    * @param out 
+    * @return int16_t 
+    */
     int16_t Limit_Out(int16_t out) const;
 
 private:
@@ -142,7 +160,10 @@ private:
     friend class Class_DJI_Motor_Group;
 };
 
-//------------------------------------------------
+
+//----------------------------------------------------------
+//↓旧版C语言大疆电机库 已弃用 先留存
+//----------------------------------------------------------
 
 /* DJI电机ID宏定义 */
 //目前似乎没什么用

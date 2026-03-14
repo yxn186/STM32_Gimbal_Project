@@ -1,15 +1,15 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file    app_bmi088_math.h
+  * @file    bmi088_math.h
   * @brief   This file contains all the function prototypes for
   *          the app_bmi088_math.c file
   ******************************************************************************
   */
 /* USER CODE END Header */
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __APP_BMI088_MATH_H__
-#define __APP_BMI088_MATH_H__
+#ifndef __BMI088_MATH_H__
+#define __BMI088_MATH_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,4 +103,4 @@ void euler_extrinsic_ZXY_to_front_yaw_pitch_deg(float ex_z_deg, float ex_x_deg, 
 }
 #endif
 
-#endif /* __APP_BMI088_MATH_H__ */
+#endif /* __BMI088_MATH_H__ */

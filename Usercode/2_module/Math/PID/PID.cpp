@@ -71,10 +71,12 @@ void Class_PID::Control_Cascade(void)
  */
 void Class_PID::Reset(void)
 {
+	Set_Angle_Target(0);
 	Angle_States.ErrorInt = 0;
 	Angle_States.Error0 = 0;
 	Angle_States.Error1 = 0;
 
+	Set_Speed_Target(0);
 	Speed_States.ErrorInt = 0;
 	Speed_States.Error0 = 0;
 	Speed_States.Error1 = 0;

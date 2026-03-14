@@ -14,7 +14,7 @@
 #include "spi.h"
 #include <math.h>
 #include <stdint.h>
-#include "app_bmi088_math.h"
+#include "bmi088_math.h"
 #include "Serial.h"
 #include "gimbal_task.h"
 #include "MahonyAHRS.h"
@@ -24,83 +24,89 @@
 #include "task.h"
 #include "MyRTOS.h"
 
+/**
+ * @brief FreeRTOS相关
+ * 
+ */
 osThreadId_t imu_calculate_ThreadIdHandle = NULL;
 TaskHandle_t imu_calculate_TaskHandle = NULL;
-
-bmi088_handle_t bmi088_handle;
-
-float roll = 0,pitch = 0,yaw = 0;
-
-static uint32_t bmi088_init_process_time;
-
-
-static uint8_t bmi088_readid_acc_flag = 0;
-static uint8_t read_accid = 0;
-static uint8_t bmi088_readid_gyro_flag = 0;
-static uint8_t read_gyroid = 0;
-
-static uint8_t bmi088_gyro_get_raw_data_finished_flag;
-static uint8_t bmi088_acc_get_raw_data_finished_flag;
-static uint8_t bmi088_acc_get_raw_data_flag;
-static uint8_t bmi088_gyro_get_raw_data_flag;
-float gimbal_pitch = 0,gimbal_yaw = 0;
-
-//检查glag
-uint8_t checkid_flag = 0;
-uint8_t writereg_flag = 0;
-
-
-uint32_t last_time1 = 0;
-uint32_t last_time2 = 0;
-uint32_t last_time3 = 0;
-uint32_t last_time4 = 0;
 
 //位通知用
 #define BMI088_Start_Get_Data   (1U << 0)
 #define BMI088_Get_Acc_OK       (1U << 1)
 #define BMI088_Get_Gyro_OK      (1U << 2)
 
-typedef enum
-{
-    BMI088_Start_Get_Data_State = 0,
-    BMI088_Wait_Get_Acc_Data_State,
-    BMI088_Wait_Get_Gyro_Data_State,
-} bmi088_calculate_task_state_e;
+/**
+ * @brief bmi088句柄
+ * 
+ */
+bmi088_handle_t bmi088_handle;
 
+/**
+ * @brief 初始化进程时间
+ * 
+ */
+static uint32_t bmi088_init_process_time;
+
+/**
+ * @brief bmi088标志位定义
+ * 
+ */
+static uint8_t bmi088_readid_acc_flag = 0;
+static uint8_t read_accid = 0;
+static uint8_t bmi088_readid_gyro_flag = 0;
+static uint8_t read_gyroid = 0;
+
+//得到数据flag
+static uint8_t bmi088_gyro_get_raw_data_finished_flag;
+static uint8_t bmi088_acc_get_raw_data_finished_flag;
+static uint8_t bmi088_acc_get_raw_data_flag;
+static uint8_t bmi088_gyro_get_raw_data_flag;
+
+//检查glag
+uint8_t checkid_flag = 0;
+uint8_t writereg_flag = 0;
+
+/**
+ * @brief 最终计算数据
+ * 
+ */
+float roll = 0,pitch = 0,yaw = 0;
+
+/**
+ * @brief 前向轴数据
+ * 
+ */
+float gimbal_pitch = 0,gimbal_yaw = 0;
+
+/**
+ * @brief 一些时间
+ * 
+ */
+uint32_t last_time1 = 0;
+uint32_t last_time2 = 0;
+uint32_t last_time3 = 0;
+uint32_t last_time4 = 0;
+
+/**
+ * @brief bmi088计算任务状态枚举
+ * 
+ */
 bmi088_calculate_task_state_e bmi088_calculate_task_state = BMI088_Start_Get_Data_State;
  
-typedef enum
-{
-    init_state_start = 0,
-    init_state_accsoftrest,
-    init_state_gyrosoftrest,
-    init_state_acc_dummyread,
-    init_state_readaccidtocheck,
-    init_state_readgyroidtocheck,
-    init_state_finishidcheck,
-    init_state_startconfigreg,
-    init_state_check_data,
-    init_state_wait_check_data,
-    init_state_finish
-} bmi088_init_state_e;
-
+/**
+ * @brief bmi088初始化进程枚举
+ * 
+ */
 bmi088_init_state_e bmi088_init_state = init_state_start;
 
-typedef struct
-{
-    int16_t gyro_raw_x;
-    int16_t gyro_raw_y;
-    int16_t gyro_raw_z;
-
-    int16_t acc_raw_x;
-    int16_t acc_raw_y;
-    int16_t acc_raw_z;
-
-}bmi088_data_t;
-
+/**
+ * @brief bmi088数据结构体
+ * 
+ */
 bmi088_data_t bmi088_data;
 
-/* ---回调函数---------------------------------------------------------------------------------------- */
+/* ---回调函数开始 --------------------------------------------------------------------------------------- */
 void bmi088_acc_get_raw_data_finished_init(int16_t acc_raw_x,int16_t acc_raw_y,int16_t acc_raw_z)
 {
     bmi088_data.acc_raw_x = acc_raw_x;
@@ -150,7 +156,7 @@ static void bmi088_readid_gyro_finished(uint8_t gyroid)
     read_gyroid = gyroid;
     bmi088_readid_gyro_flag = 1;
 }
-/* ---回调函数---------------------------------------------------------------------------------------- */
+/* ---回调函数结束 --------------------------------------------------------------------------------------- */
 
 
 /**
@@ -296,20 +302,20 @@ uint8_t app_bmi088_init_process_loop(void)
 
         if(writereg_flag && checkid_flag)
         {
-            JOLED_Clear();
-            JOLED_ShowString(4, 1, "BOK");
+            //JOLED_Clear();
+            //JOLED_ShowString(4, 1, "BOK");
             STM32_Printf("BMI088 init all OK!\r\n");
         }
         else 
         {   
-            JOLED_Clear();
-            JOLED_ShowString(4, 1, "BERR");
+            //JOLED_Clear();
+            //JOLED_ShowString(4, 1, "BERR");
             STM32_Printf("BMI088 init Error!\r\n");
         }
     }
     else if(bmi088_init_state == init_state_check_data)//开始零偏校准
     {
-        JOLED_ShowString(1, 1, "wait");
+        //JOLED_ShowString(1, 1, "wait");
         STM32_Printf("wait for bias calibration!\r\n");
 
         bmi088_biascalibration_start(100);
@@ -360,12 +366,12 @@ uint8_t app_bmi088_init_process_loop(void)
             }
 
             bmi088_init_state = init_state_finish;
-            JOLED_ShowString(1, 1, "ok get:              ");
+            //JOLED_ShowString(1, 1, "ok get:              ");
             STM32_Printf("bias calibration finish!\r\n");
 
             STM32_Printf("Get %d effective samples use %.2f s\r\n", bmi088_getbiascalibration_current_samples_effective(), (float)(HAL_GetTick() - last_time4)/1000.0f);
             
-            JOLED_ShowNum(1, 8, bmi088_getbiascalibration_current_samples_effective(), 5);
+            //JOLED_ShowNum(1, 8, bmi088_getbiascalibration_current_samples_effective(), 5);
             return 1;
         }
     }
@@ -399,9 +405,7 @@ void app_bmi088_20ms_task(void)
     }
 }
 
-
-
-/* BMI088 FreeRTOS相关----------------------------------------------------------------*/
+/* BMI088 FreeRTOS相关 ----------------------------------------------------------------*/
 
 
 const osThreadAttr_t imu_calculate_attributes = {
@@ -420,6 +424,11 @@ void bmi088_freertos_init(void)
     imu_calculate_TaskHandle = (TaskHandle_t)imu_calculate_ThreadIdHandle;
 }
 
+/**
+ * @brief bmi088 freertos任务函数 计算 
+ * 
+ * @param argument 
+ */
 void bmi088_calculate_task(void *argument)
 {
     for(;;)

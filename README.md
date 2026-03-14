@@ -1,24 +1,47 @@
 ﻿# STM32_GIMBAL_Projects
 
-基于 STM32F405 + HAL + CubeMX + CMake 的云台控制学习/开发工程。
+基于 STM32F405 + HAL + CubeMX + CMake 的云台控制学习/开发工程
 
 ## 程序函数调用框图
 
 ```mermaid
 flowchart TD
-    A[main.cpp] --> B[HAL 初始化 / 时钟 / 外设初始化]
-    B --> C[application 层任务]
-    C --> D[gimbal_task]
-    C --> E[app_bmi088]
-    D --> F[module 层]
-    E --> F
-    F --> G[DJI_Motor / PID / AHRS / DR16 / BMI088 / OLED / Serial]
-    G --> H[bsp 层]
-    H --> I[CAN / SPI / USART / USB / DWT]
-    I --> J[CubeMX 生成代码 Core + USB_DEVICE + HAL Drivers]
+A[系统启动] --> B[初始化任务]
+B --> C[初始化云台模块]
+C --> D[初始化串口 USB 电机 BMI088 PID]
+
+D --> E[主控任务 1ms]
+D --> F[IMU解算任务]
+D --> G[打印任务]
+
+H[上位机视觉输入] --> I[USB回调]
+I --> J[目标角度]
+
+K[BMI088中断] --> L[读取陀螺仪和加速度]
+L --> M[姿态解算]
+M --> N[得到云台 yaw pitch]
+
+E --> J
+E --> N
+E --> O[PID控制计算]
+O --> P[电机输出]
+
+P --> Q[CAN发送]
+Q --> R[Yaw电机]
+Q --> S[Pitch电机]
+
+R --> T[电机反馈]
+S --> T
+T --> E
+
+G --> N
 ```
 
-## 项目目录结构（按当前仓库）
+
+
+## 项目信息
+
+### 项目目录结构
 
 ```text
 .
@@ -51,7 +74,7 @@ flowchart TD
 └─ GeneratorAfter.bat
 ```
 
-## 分层使用逻辑
+### 分层使用逻辑
 
 1. `Core/`、`USB_DEVICE/`、`Drivers/`、`Middlewares/`：CubeMX/HAL 生成与维护。
 2. `Usercode/1_bsp`：直接贴近硬件外设（CAN/SPI/UART/USB/DWT 等）。
@@ -59,7 +82,7 @@ flowchart TD
 4. `Usercode/3_application`：任务编排与业务逻辑，组合调用 module + bsp。
 5. 顶层 `CMakeLists.txt`：统一组织 `stm32cubemx + bsp + module + application`。
 
-## 开发流程（建议）
+### 开发流程（建议）
 
 1. 基于 `main` 创建功能分支。
 2. 在分支上开发 `Usercode` 下的 `.c/.cpp/.h`。
@@ -73,7 +96,7 @@ git checkout <你的功能分支> -- Usercode/
 
 6. 在 `main` 提交合并后的模块更新。
 
-## CubeMX + C++ 协同策略
+### CubeMX + C++ 协同策略
 
 CubeMX 会固定生成 `main.c`（以及 USB CDC 的 `usbd_cdc_if.c`），而工程实际使用 `main.cpp` / `usbd_cdc_if.cpp`。
 
@@ -83,7 +106,7 @@ CubeMX 会固定生成 `main.c`（以及 USB CDC 的 `usbd_cdc_if.c`），而工
 2. CubeMX 完成生成后执行 `GeneratorAfter.bat`：再改回 `main.cpp`，并删除 `usbd_cdc_if.c`。
 3. 顶层 `CMakeLists.txt` 中把 `main.c`、`usbd_cdc_if.c` 标为 `HEADER_FILE_ONLY`，并显式编译 `main.cpp`、`usbd_cdc_if.cpp`。
 
-## CMake 构建
+### CMake 构建
 
 ```bash
 cmake --preset Debug
@@ -97,9 +120,9 @@ cmake --preset Release
 cmake --build --preset Release
 ```
 
-## 关键脚本与配置（完整原文）
+### 关键脚本与配置（完整原文）
 
-### `GeneratorBefore.bat`
+#### `GeneratorBefore.bat`
 
 ```bat
 @echo off
@@ -138,7 +161,7 @@ if exist "%main_cpp_file%" (
 echo =============^> GeneratorBefore.bat stop ^<=============
 ```
 
-### `GeneratorAfter.bat`
+#### `GeneratorAfter.bat`
 
 ```bat
 @echo off
@@ -178,7 +201,7 @@ if exist "%usb_c_file%" (
 echo ============= GeneratorAfter.bat stop =============
 ```
 
-### `CMakeLists.txt`（仓库根目录）
+#### `CMakeLists.txt`（仓库根目录）
 
 ```cmake
 cmake_minimum_required(VERSION 3.22)
@@ -325,7 +348,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -u _printf_float")
 ```
 
-### `cmake/stm32cubemx/CMakeLists.txt`
+#### `cmake/stm32cubemx/CMakeLists.txt`
 
 ```cmake
 cmake_minimum_required(VERSION 3.22)
@@ -452,7 +475,7 @@ if((CMAKE_C_STANDARD EQUAL 90) OR (CMAKE_C_STANDARD EQUAL 99))
 endif()
 ```
 
-### `Usercode/1_bsp/CMakeLists.txt`
+#### `Usercode/1_bsp/CMakeLists.txt`
 
 ```cmake
 cmake_minimum_required(VERSION 3.22)
@@ -479,7 +502,7 @@ target_link_libraries(bsp PUBLIC
 )
 ```
 
-### `Usercode/2_module/CMakeLists.txt`
+#### `Usercode/2_module/CMakeLists.txt`
 
 ```cmake
 cmake_minimum_required(VERSION 3.22)
@@ -510,7 +533,7 @@ target_link_libraries(module PUBLIC
 )
 ```
 
-### `Usercode/3_application/CMakeLists.txt`
+#### `Usercode/3_application/CMakeLists.txt`
 
 ```cmake
 cmake_minimum_required(VERSION 3.22)
@@ -534,7 +557,7 @@ set(APP_SOURCES
 
     #${CMAKE_CURRENT_LIST_DIR}/W25Q64/app_W25Q64.c
     ${CMAKE_CURRENT_LIST_DIR}/bmi088/app_bmi088.c
-    ${CMAKE_CURRENT_LIST_DIR}/bmi088/app_bmi088_math.c
+    ${CMAKE_CURRENT_LIST_DIR}/bmi088/bmi088_math.c
     ${CMAKE_CURRENT_LIST_DIR}/gimbal_task/gimbal_task.c
 )
 

@@ -61,8 +61,12 @@ extern bool init_finished;
 extern struct Struct_USB_Manage_Object USB0_Manage_Object;
 
 /* Exported function declarations --------------------------------------------*/
-
-void USB_Init();
+/**
+ * @brief 初始化USB
+ *
+ * @param Callback_Function 处理回调函数
+ */
+void USB_Init(USB_Callback USB_Callback_Funtion);
 
 uint8_t USB_Transmit_Data(uint8_t *Data, uint16_t Length);
 
