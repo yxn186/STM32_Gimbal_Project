@@ -68,8 +68,6 @@ class Class_Chassis
   //各电机数据
   //包括目标速度 当前速度 PID参数 输出Out
   Class_PID PID_Motor[4];
-  //好像写错了？不需要四个PID类 而是一个底盘大类？
-  //好像写错了？不需要四个PID类 而是一个底盘大类？
 
   Class_PID PID_X;
   Class_PID PID_Y;
