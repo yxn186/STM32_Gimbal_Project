@@ -15,21 +15,13 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-/* Private macros ------------------------------------------------------------*/
-
-/* Private types -------------------------------------------------------------*/
-
-/* Private variables ---------------------------------------------------------*/
+/*YOUR CODE*/
 
 Struct_USB_Manage_Object USB0_Manage_Object = {nullptr};
 
 // USB设备句柄, 由 usbd_cdc_if.c 中定义
 extern USBD_HandleTypeDef hUsbDeviceFS;
 extern uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
-
-/* Private function declarations ---------------------------------------------*/
-
-/* function prototypes -------------------------------------------------------*/
 
 /**
  * @brief USB虚拟串口回调函数
@@ -77,7 +69,7 @@ uint8_t USB_Transmit_Data(uint8_t *Data, uint16_t Length)
  */
 void USB_ReceiveCallback(uint16_t Size)
 {
-    //系统还没初始化完成时，不做你自己的数据处理逻辑。
+    //系统还没初始化完成时，不做自己的数据处理逻辑。
     //只把 USB OUT 端点重新挂好（re-arm），保证后续还能继续收包。
     //避免“初始化早期收到数据”导致访问未准备好的模块/回调。
     if (!init_finished)

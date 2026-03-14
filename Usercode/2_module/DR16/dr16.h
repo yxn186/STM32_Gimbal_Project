@@ -13,7 +13,6 @@
 
 #include "bsp_usart.h"
 
-/* Exported macros -----------------------------------------------------------*/
 
 // 拨动开关位置
 #define DR16_SWITCH_UP (1)

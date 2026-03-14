@@ -13,16 +13,14 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-/* =========================
- * 可配置参数
- * ========================= */
+//参数配置
 #define Serial_TxBuffer_Size                1024    //发送缓冲区大小
 #define Serial_RxBuffer_Size                1024    //接收缓冲区大小
 
 #define Serial_Printf_Temp_Buffer_Size      256     //Serial_Printf的临时缓冲区大小
 
 
-/* ---------- Tx 环形缓冲区（DMA 从这里取数据发出去） ---------- */
+/* ---------- Tx 环形缓冲区 ---------- */
 static uint8_t Serial_TxBuffer_Data[Serial_TxBuffer_Size];
 static uint8_t Serial_RxBuffer_Data[Serial_RxBuffer_Size];
 
@@ -32,9 +30,7 @@ Serial_handle_t Serial_handle_global =
     .RxBuffer = Serial_RxBuffer_Data,
 };
 
-/* =========================
- * 工具函数
- * ========================= */
+//工具函数
 
 /**
  * @brief 串口进入关键区 关中断 （防止中断里和主线程同时改 index）
@@ -318,9 +314,7 @@ void Serial_Send_Data(const uint8_t *data, uint16_t length)
     Serial_Write_To_TxBuffer(data, length);
 }
 
-/* ============================================================
- * 对外接口：Rx 环形缓冲区读取
- * ============================================================ */
+//RX环形缓冲区读取 接口
 uint16_t Serial_GetReceiveRingBufferCount(void)
 {
     uint16_t usedCount = 0;

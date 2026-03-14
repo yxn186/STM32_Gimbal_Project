@@ -8,10 +8,12 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "chassis.h"
+#include "can.h"
 #include "dr16.h"
 #include "MyMath.h"
 #include "PID.h"
 #include "DJI_Motor.h"
+#include <complex.h>
 #include <cstdint>
 
 /**
@@ -21,16 +23,24 @@
 Class_Chassis Chassis;
 
 /**
+ * @brief DJI_Mmotr类
+ * 
+ */
+Class_DJI_Motor_Group Chassis_DJI_Motor_Group;
+Class_DJI_Motor Chassis_DJI_Motor[4];
+
+/**
  * @brief 底盘参数初始化
  * 
  */
 void Chassis_Init(void)
 {
-  //ID设置
-  Chassis.Motor_ID[0] = 0;
-  Chassis.Motor_ID[1] = 0;
-  Chassis.Motor_ID[2] = 0;
-  Chassis.Motor_ID[3] = 0;
+  //电机设置
+  Chassis_DJI_Motor_Group.Init(&hcan1, DJI_Motor_3508);
+  Chassis_DJI_Motor[0].Init(DJI_Motor_3508, 0, &Chassis_DJI_Motor_Group);
+  Chassis_DJI_Motor[1].Init(DJI_Motor_3508, 0, &Chassis_DJI_Motor_Group);
+  Chassis_DJI_Motor[2].Init(DJI_Motor_3508, 0, &Chassis_DJI_Motor_Group);
+  Chassis_DJI_Motor[3].Init(DJI_Motor_3508, 0, &Chassis_DJI_Motor_Group);
 
   //电机PID参数
   for(uint8_t i = 0;i < 4;i++)
@@ -100,7 +110,7 @@ void Chassis_Init(void)
 
 /**
  * @brief 底盘电机目标角速度计算
- * 
+ * @details 根据底盘各轴目标值进行解算到各电机PID目标值上
  */
 void Class_Chassis::Motor_Target_AngleSpeed_Calculate(void)
 {
@@ -126,10 +136,10 @@ void Class_Chassis::Speed_PID_To_Out_Calculate(void)
     for(uint8_t i = 0; i < 4; i++)
   {
     //获取当前速度 存入PID当前值
-    //大疆系电机返回的速度到底是“电机转子速度”还是“减速后输出轴速度”？思考
+    //大疆系电机返回的速度到底是“电机转子速度”还是“减速后输出轴速度”？待思考
     //思考
     //思考
-    Chassis.PID_Motor[i].Set_Current_Speed(DJI_Motor_Get_AngleSpeed(Chassis.Motor_ID[i]));
+    Chassis.PID_Motor[i].Set_Current_Speed(Chassis_DJI_Motor[i].Get_AngleSpeed());
   
     //PID
     Chassis.PID_Motor[i].Control_Speed_To_Out();
@@ -152,8 +162,7 @@ void Class_Chassis::Speed_PID_To_Force_Calculate(void)
     //思考
 
     //获取当前速度 存入PID当前值
-    //Chassis.PID_Motor[i].Set_Current_Speed(DJI_Motor_Get_AngleSpeed(Chassis.Motor_ID[i]));
-    Chassis.Motor_Current_AngleSpeed[i] = DJI_Motor_Get_AngleSpeed(Chassis.Motor_ID[i]);
+    Chassis.PID_Motor[i].Set_Current_Speed(Chassis_DJI_Motor[i].Get_AngleSpeed());
   }
 
   //运动学正解算！！
@@ -273,4 +282,16 @@ void Class_Chassis::Set_Target_Speed_XYZ(float X,float Y,float Z)
   Target_Speed_X = X;
   Target_Speed_Y = Y;
   Target_AngleSpeed_w = Z; 
+}
+
+/**
+ * @brief 底盘推送输出值给电机
+ * 
+ */
+void Class_Chassis::Push_Control_Value_To_Motor(void)
+{
+  for(uint8_t i = 0;i<4;i++)
+  {
+    Chassis_DJI_Motor[i].Set_Out(Chassis.Motor_Control_Value[i]);
+  }
 }

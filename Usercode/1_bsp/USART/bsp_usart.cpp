@@ -9,7 +9,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "bsp_usart.h"
 
-/* Private variables ---------------------------------------------------------*/
+/*YOUR CODE*/
 
 Struct_UART_Manage_Object UART1_Manage_Object = {0};
 Struct_UART_Manage_Object UART2_Manage_Object = {0};
@@ -18,9 +18,6 @@ Struct_UART_Manage_Object UART4_Manage_Object = {0};
 Struct_UART_Manage_Object UART5_Manage_Object = {0};
 Struct_UART_Manage_Object UART6_Manage_Object = {0};
 
-/* Private function declarations ---------------------------------------------*/
-
-/* function prototypes -------------------------------------------------------*/
 
 /**
  * @brief 初始化UART

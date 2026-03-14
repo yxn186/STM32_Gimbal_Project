@@ -6,20 +6,17 @@
   ******************************************************************************
   */
 /* USER CODE END Header */
+
 /* Includes ------------------------------------------------------------------*/
 #include "bsp_spi.h"
 #include "stm32f4xx_hal_gpio.h"
 #include <stdint.h>
 
-/* Private variables ---------------------------------------------------------*/
-
+/*YOUR CODE*/
 Struct_SPI_Manage_Object SPI1_Manage_Object = {nullptr};
 Struct_SPI_Manage_Object SPI2_Manage_Object = {nullptr};
 Struct_SPI_Manage_Object SPI3_Manage_Object = {nullptr};
 
-/* Private function declarations ---------------------------------------------*/
-
-/* Function prototypes -------------------------------------------------------*/
 
 /**
  * @brief 初始化SPI

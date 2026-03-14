@@ -78,8 +78,8 @@ class Class_Chassis
   float MotorCurrent_Out_K_Torque_to_Current;//经验性比例系数
 
   /**
-  * @brief 底盘电机角速度计算
-  * 
+  * @brief 底盘电机目标角速度计算
+  * @details 根据底盘各轴目标值进行解算到各电机PID目标值上
   */
   void Motor_Target_AngleSpeed_Calculate(void);
 
@@ -127,6 +127,12 @@ class Class_Chassis
   * @param Z 旋转角速度
   */
   void Set_Target_Speed_XYZ(float X,float Y,float Z);
+
+  /**
+  * @brief 底盘推送输出值给电机
+  * 
+  */
+  void Push_Control_Value_To_Motor(void);
 
   /**
    * @brief 获取电机输出值

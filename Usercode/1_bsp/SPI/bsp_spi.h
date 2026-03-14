@@ -7,7 +7,7 @@
   ******************************************************************************
   */
 /* USER CODE END Header */
-/* Define to prevent recursive inclusion -------------------------------------*/
+
 #ifndef __BSP_SPI_H__
 #define __BSP_SPI_H__
 
