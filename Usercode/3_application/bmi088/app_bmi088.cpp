@@ -10,7 +10,6 @@
 #include "app_bmi088.h"
 #include "bmi088.h"
 #include "bmi088reg.h"
-#include "joled.h"
 #include "spi.h"
 #include <math.h>
 #include <stdint.h>
@@ -302,20 +301,15 @@ uint8_t app_bmi088_init_process_loop(void)
 
         if(writereg_flag && checkid_flag)
         {
-            //JOLED_Clear();
-            //JOLED_ShowString(4, 1, "BOK");
             STM32_Printf("BMI088 init all OK!\r\n");
         }
         else 
         {   
-            //JOLED_Clear();
-            //JOLED_ShowString(4, 1, "BERR");
             STM32_Printf("BMI088 init Error!\r\n");
         }
     }
     else if(bmi088_init_state == init_state_check_data)//开始零偏校准
     {
-        //JOLED_ShowString(1, 1, "wait");
         STM32_Printf("wait for bias calibration!\r\n");
 
         bmi088_biascalibration_start(100);
@@ -366,12 +360,10 @@ uint8_t app_bmi088_init_process_loop(void)
             }
 
             bmi088_init_state = init_state_finish;
-            //JOLED_ShowString(1, 1, "ok get:              ");
             STM32_Printf("bias calibration finish!\r\n");
 
             STM32_Printf("Get %d effective samples use %.2f s\r\n", bmi088_getbiascalibration_current_samples_effective(), (float)(HAL_GetTick() - last_time4)/1000.0f);
             
-            //JOLED_ShowNum(1, 8, bmi088_getbiascalibration_current_samples_effective(), 5);
             return 1;
         }
     }

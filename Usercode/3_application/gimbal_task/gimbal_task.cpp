@@ -9,7 +9,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "gimbal_task.h"
 #include "bsp_usb.h"
-#include "joled.h"
 #include "app_bmi088.h"
 #include "Serial.h"
 #include "usart.h"
@@ -266,7 +265,6 @@ void main_Task_1ms(void *argument)
  */
 void gimbal_task_init(void)
 {
-    //JOLED_Init();
     Serial_Init(&huart1);
     USB_Init(USB_CallBack);
     Gimbal_DJI_Motor_Init();
