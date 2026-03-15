@@ -45,16 +45,34 @@ G --> N
 
 ```text
 .
-├─ Core/                     # CubeMX 生成：核心启动与外设初始化
-├─ Drivers/                  # HAL/CMSIS
-├─ Middlewares/              # USB Device 等中间件
-├─ USB_DEVICE/               # USB 设备栈与接口
+├─ .idea/                    # IDE 工程配置
+├─ .settings/                # STM32CubeIDE / Eclipse 配置
+├─ .vscode/                  # VS Code 配置
+├─ build/                    # CMake 构建输出
+├─ build-vscode/             # VS Code / CMake 构建输出
 ├─ cmake/
-│  └─ stm32cubemx/           # CubeMX 转换后的 CMake 子工程
+│  ├─ stm32cubemx/
+│  │  └─ CMakeLists.txt      # CubeMX 转换后的 CMake 子工程
+│  ├─ gcc-arm-none-eabi.cmake
+│  └─ starm-clang.cmake
+├─ Core/
+│  ├─ Inc/                   # CubeMX 生成头文件
+│  └─ Src/                   # CubeMX 生成源码与 main.cpp
+├─ Drivers/
+│  ├─ CMSIS/
+│  └─ STM32F4xx_HAL_Driver/
+├─ Middlewares/
+│  ├─ ST/
+│  └─ Third_Party/
+├─ USB_DEVICE/
+│  ├─ App/                   # USB Device 应用接口（含 usbd_cdc_if.cpp）
+│  └─ Target/
 ├─ Usercode/
 │  ├─ 1_bsp/                 # 板级支持层
 │  │  ├─ CAN/
+│  │  ├─ CubeMX/
 │  │  ├─ DWT/
+│  │  ├─ MyRTOS/
 │  │  ├─ SPI/
 │  │  ├─ USART/
 │  │  └─ USB/
@@ -63,15 +81,21 @@ G --> N
 │  │  ├─ DJI_Motor/
 │  │  ├─ DR16/
 │  │  ├─ Math/
-│  │  ├─ OLED/
 │  │  └─ Serial/
 │  └─ 3_application/         # 业务应用层
 │     ├─ bmi088/
 │     └─ gimbal_task/
+├─ .clangd
+├─ .gitignore
+├─ .mxproject
 ├─ CMakeLists.txt
 ├─ CMakePresets.json
+├─ F405RGT6Project.ioc
+├─ README.md
 ├─ GeneratorBefore.bat
-└─ GeneratorAfter.bat
+├─ GeneratorAfter.bat
+├─ startup_stm32f405xx.s
+└─ STM32F405XX_FLASH.ld
 ```
 
 ### 分层使用逻辑
