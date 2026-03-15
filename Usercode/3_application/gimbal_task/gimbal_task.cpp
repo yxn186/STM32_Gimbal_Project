@@ -8,7 +8,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "gimbal_task.h"
-#include "bsp_usb.h"
 #include "app_bmi088.h"
 #include "Serial.h"
 #include "usart.h"
