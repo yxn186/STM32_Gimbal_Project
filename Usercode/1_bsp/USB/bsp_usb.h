@@ -56,7 +56,7 @@ struct Struct_USB_Manage_Object
 
 /* Exported variables --------------------------------------------------------*/
 
-extern bool init_finished;
+extern bool Global_Init_Finished;
 
 extern struct Struct_USB_Manage_Object USB0_Manage_Object;
 

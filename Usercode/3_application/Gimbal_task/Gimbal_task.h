@@ -1,9 +1,9 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file    gimbal_task.h
+  * @file    Gimbal_task.h
   * @brief   This file contains all the function prototypes for
-  *          the gimbal_task.c file
+  *          the Gimbal_task.c file
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -21,7 +21,7 @@ extern "C" {
 #include "Serial.h"
 
 /*YOUR CODE*/
-extern bool init_finished;
+extern bool Global_Init_Finished;
 
 /* Printf配置------------------------------------------------- */
 #ifndef STM32_PRINTF_USE_USB

@@ -25,7 +25,7 @@ extern "C" {
 #define UART_BUFFER_SIZE 512
 
 /* Exported types ------------------------------------------------------------*/
-extern bool init_finished;
+extern bool Global_Init_Finished;
 
 /**
  * @brief UART通信发送回调函数数据类型

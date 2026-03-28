@@ -72,7 +72,7 @@ void USB_ReceiveCallback(uint16_t Size)
     //系统还没初始化完成时，不做自己的数据处理逻辑。
     //只把 USB OUT 端点重新挂好（re-arm），保证后续还能继续收包。
     //避免“初始化早期收到数据”导致访问未准备好的模块/回调。
-    if (!init_finished)
+    if (!Global_Init_Finished)
     {
         USBD_CDC_SetRxBuffer(&hUsbDeviceFS, USB0_Manage_Object.Rx_Buffer_Active);
         USBD_CDC_ReceivePacket(&hUsbDeviceFS);

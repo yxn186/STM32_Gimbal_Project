@@ -214,7 +214,7 @@ uint8_t bmi088_biascalibration_pushsampletocalculate(int16_t gyro_raw_x,int16_t 
     }
     //到达这里说明理论足够采样数据 进行数据平均值计算
 
-    ////先计算得到采样数的倒数 减少后续使用除法
+    //先计算得到采样数的倒数 减少后续使用除法
 
     float current_samples_inv = 0;
 

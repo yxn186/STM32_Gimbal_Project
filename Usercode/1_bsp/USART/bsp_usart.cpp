@@ -200,7 +200,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
     // 判断程序初始化完成
-    if (!init_finished)
+    if (!Global_Init_Finished)
     {
         // 重启接收
         if (huart->Instance == USART1)

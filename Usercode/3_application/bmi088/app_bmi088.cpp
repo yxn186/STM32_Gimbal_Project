@@ -23,6 +23,8 @@
 #include "task.h"
 #include "MyRTOS.h"
 
+#define biascalibration_target_samples 1000 //零飘校准目标次数
+
 /**
  * @brief FreeRTOS相关
  * 
@@ -312,7 +314,7 @@ uint8_t app_bmi088_init_process_loop(void)
     {
         STM32_Printf("wait for bias calibration!\r\n");
 
-        bmi088_biascalibration_start(100);
+        bmi088_biascalibration_start(biascalibration_target_samples);
         bmi088_init_state = init_state_wait_check_data;
 
         last_time4 = HAL_GetTick();
@@ -393,12 +395,12 @@ void app_bmi088_20ms_task(void)
 {   
     if(bmi088_init_state == init_state_finish)//完成则进入任务循环
     {
-        STM32_Printf("%.8f,%.8f,%.8f,%.8f,%.8f\r\n",roll,pitch,yaw,gimbal_pitch,gimbal_yaw);
+        //STM32_Printf("%.8f,%.8f,%.8f,%.8f,%.8f\r\n",roll,pitch,yaw,gimbal_pitch,gimbal_yaw);
+        STM32_Printf("%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f\r\n",roll,pitch,yaw,gimbal_pitch,gimbal_yaw,q0,q1,q2,q3);
     }
 }
 
 /* BMI088 FreeRTOS相关 ----------------------------------------------------------------*/
-
 
 const osThreadAttr_t imu_calculate_attributes = {
   .name = "imu_calculate",

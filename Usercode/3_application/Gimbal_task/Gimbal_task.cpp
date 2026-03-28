@@ -1,13 +1,13 @@
 ﻿/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file    gimbal_task.c
+  * @file    Gimbal_task.c
   * @brief   Task
   ******************************************************************************
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include "gimbal_task.h"
+#include "Gimbal_task.h"
 #include "app_bmi088.h"
 #include "Serial.h"
 #include "usart.h"
@@ -23,24 +23,9 @@
 #include <math.h>
 
 /*  Task层全局变量 ------------------------------------------------------------*/
-bool init_finished = false;
-
+bool Global_Init_Finished = false;
+bool is_gimbal_mode = false;
 /*  Task层数据    ------------------------------------------------------------*/
-
-/**
- * @brief DJI_Mmotr类
- * 
- */
-Class_DJI_Motor_Group Gimbal_DJI_Motor_Group;
-Class_DJI_Motor DJI_Motor_Pitch;
-Class_DJI_Motor DJI_Motor_Yaw;
-
-/**
- * @brief PID类
- * 
- */
-Class_PID PID_Gimbal_Motor_Yaw;
-Class_PID PID_Gimbal_Motor_Pitch;
 
 /**
  * @brief 云台状态枚举
@@ -67,8 +52,25 @@ bool need_change_mode = false;
 float Aim_Pitch;
 float Aim_Yaw;
 
+/*  Task层类    --------------------------------------------------------------*/
+/**
+ * @brief DJI_Mmotr类
+ * 
+ */
+Class_DJI_Motor_Group Gimbal_DJI_Motor_Group;
+Class_DJI_Motor DJI_Motor_Pitch;
+Class_DJI_Motor DJI_Motor_Yaw;
+
+/**
+ * @brief PID类
+ * 
+ */
+Class_PID PID_Gimbal_Motor_Yaw;
+Class_PID PID_Gimbal_Motor_Pitch;
+
 /*  Task层初始化函数    ------------------------------------------------------*/
 
+//PID参数在这里~~~
 /**
  * @brief PID参数初始化 Yaw电机
  * 
@@ -169,7 +171,7 @@ void USB_CallBack(uint8_t *Buffer, uint16_t Length)
 
 /*  Task层FreeRTOS函数 任务函数 -----------------------------------------------*/
 
-void StartInitTask(void *argument)
+extern "C" void StartInitTask(void *argument)
 {
  /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
@@ -180,14 +182,19 @@ void StartInitTask(void *argument)
   {
     if(gimbal_task_init_loop())
     {
-      init_finished = true;
+      Global_Init_Finished = true;
       osThreadTerminate(osThreadGetId());
     }
   }
   /* USER CODE END StartInitTask */
 }
 
-void Data_ptintf_task(void *argument)
+/**
+ * @brief 数据打印任务 20ms
+ * 
+ * @param argument 
+ */
+extern "C" void Data_ptintf_task(void *argument)
 {
   /* USER CODE BEGIN Data_ptintf_task */
   /* Infinite loop */
@@ -199,58 +206,60 @@ void Data_ptintf_task(void *argument)
   /* USER CODE END Data_ptintf_task */
 }
 
-void main_Task_1ms(void *argument)
+extern "C" void main_Task_1ms(void *argument)
 {
   /* USER CODE BEGIN main_Task_1ms */
   /* Infinite loop */
   for(;;)
   {
-    //模式判断
-    if(need_change_mode)
-    {
-      gimbal_pid_reset();
-      //待补充
-    }
-    //设置target
-    if(gimtal_states == gimbal_states_aim_mode)//瞄准装甲板模式 接收视觉信息
-    {
-      //USB信息获取在回调中
-
-      //获取到的信息存入PID目标（可能需要先做数据处理！！！！！！！！！）
-      PID_Gimbal_Motor_Pitch.Set_Angle_Target(Aim_Pitch);
-      PID_Gimbal_Motor_Yaw.Set_Angle_Target(Aim_Yaw);
-
-    }
-    else if(gimtal_states == gimbal_states_sentry_mode)//哨兵模式 自己乱转
-    {
-      target_set_time++;
-      Set_Yaw_and_Pitch_Motor_Target_Sentry();
-    }
-
     float Yaw,Pitch;
     //得到前向角 pitch和yaw 传给PID控制对象（增加个速度？）
     app_bmi088_1ms_task_get_now_pitch_and_yaw(&Yaw,&Pitch);
 
-    //当前速度赋值 待确认赋值正确
-    Gimbal_Push_Motor_Current_Speed_To_PID();
+    if(is_gimbal_mode)
+    {
+      //模式判断
+      if(need_change_mode)
+      {
+        gimbal_pid_reset();
+        //待补充
+      }
+      //设置target
+      if(gimtal_states == gimbal_states_aim_mode)//瞄准装甲板模式 接收视觉信息
+      {
+        //USB信息获取在回调中
 
-    //角度赋值
-    Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(Pitch,Yaw);
+        //获取到的信息存入PID目标（可能需要先做数据处理！！！！！！！！！）
+        PID_Gimbal_Motor_Pitch.Set_Angle_Target(Aim_Pitch);
+        PID_Gimbal_Motor_Yaw.Set_Angle_Target(Aim_Yaw);
 
-    //单环PID 先跑通
-    PID_Gimbal_Motor_Yaw.Control_Speed_To_Out();
-    PID_Gimbal_Motor_Pitch.Control_Speed_To_Out();
+      }
+      else if(gimtal_states == gimbal_states_sentry_mode)//哨兵模式 自己乱转
+      {
+        target_set_time++;
+        Set_Yaw_and_Pitch_Motor_Target_Sentry();
+      }
 
-    //双环PID控制 跑通后设置
-    // PID_Gimbal_Motor_Yaw.Control_Cascade();
-    // PID_Gimbal_Motor_Pitch.Control_Cascade();
+      //当前速度赋值 待确认赋值正确
+      Gimbal_Push_Motor_Current_Speed_To_PID();
 
-    //将PID输出值推送至电机输出值
-    Gimbal_Push_PID_Out_To_Motor_Control();
+      //角度赋值
+      Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(Pitch,Yaw);
 
-    //将电机输出值进行CAN通信发送
-    Gimbal_DJI_Motor_Group.Push_Data();
+      //单环PID 先跑通
+      PID_Gimbal_Motor_Yaw.Control_Speed_To_Out();
+      PID_Gimbal_Motor_Pitch.Control_Speed_To_Out();
 
+      //双环PID控制 跑通后设置
+      // PID_Gimbal_Motor_Yaw.Control_Cascade();
+      // PID_Gimbal_Motor_Pitch.Control_Cascade();
+
+      //将PID输出值推送至电机输出值
+      Gimbal_Push_PID_Out_To_Motor_Control();
+
+      //将电机输出值进行CAN通信发送
+      Gimbal_DJI_Motor_Group.Push_Data();
+    } 
     osDelay(1);
   }
   /* USER CODE END main_Task_1ms */
@@ -264,13 +273,17 @@ void main_Task_1ms(void *argument)
  */
 void gimbal_task_init(void)
 {
-    Serial_Init(&huart1);
+  Serial_Init(&huart1);
+  app_bmi088_init();
+
+  if(is_gimbal_mode)
+  {
     USB_Init(USB_CallBack);
     Gimbal_DJI_Motor_Init();
-    app_bmi088_init();
     Gimbal_Yaw_Motor_PID_Init();
     Gimbal_Pitch_Motor_PID_Init();
     gimbal_target_init();
+  }
 }
 
 /**
