@@ -1,13 +1,13 @@
 ﻿/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file    Gimbal_task.c
+  * @file    Gimbal_Task.c
   * @brief   Task
   ******************************************************************************
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include "Gimbal_task.h"
+#include "Gimbal_Task.h"
 #include "app_bmi088.h"
 #include "Serial.h"
 #include "usart.h"
@@ -213,7 +213,7 @@ extern "C" void main_Task_1ms(void *argument)
   for(;;)
   {
     float Yaw,Pitch;
-    //得到前向角 pitch和yaw 传给PID控制对象（增加个速度？）
+    //得到前向角 pitch和yaw 传给Yaw和Pitch变量
     app_bmi088_1ms_task_get_now_pitch_and_yaw(&Yaw,&Pitch);
 
     if(is_gimbal_mode)

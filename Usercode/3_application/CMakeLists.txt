@@ -17,10 +17,10 @@ set(APP_SOURCES
     #   把文件路径加到 APP_SOURCES：
     #   ${CMAKE_CURRENT_LIST_DIR}/gimbal/app_gimbal.c
 
-    #${CMAKE_CURRENT_LIST_DIR}/W25Q64/app_W25Q64.c
+
     ${CMAKE_CURRENT_LIST_DIR}/bmi088/app_bmi088.cpp
     ${CMAKE_CURRENT_LIST_DIR}/bmi088/bmi088_math.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Gimbal_task/Gimbal_task.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Gimbal_Task/Gimbal_Task.cpp
     ${CMAKE_CURRENT_LIST_DIR}/chassis/chassis.cpp
 )
 

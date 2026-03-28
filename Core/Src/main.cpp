@@ -65,6 +65,31 @@ void MX_FREERTOS_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+/**
+ * @brief USB FS D+ 虚拟拔插
+ * 
+ */
+static void USB_FS_ReEnumerate(void)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    /* 1. 临时把 PA12 当普通 GPIO 输出 */
+    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_12);
+    GPIO_InitStruct.Pin = GPIO_PIN_12;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    /* 2. 强制拉低 D+，模拟设备断开 */
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);
+    HAL_Delay(20);   // 20~65ms 都有人用，按实际测试调
+
+    /* 3. 释放这个引脚，后面交给 USB 外设重新初始化 */
+    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_12);
+}
 /* USER CODE END 0 */
 
 /**
@@ -105,7 +130,7 @@ int main(void)
   MX_I2C2_Init();
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
-
+  USB_FS_ReEnumerate();
   /* USER CODE END 2 */
 
   /* Init scheduler */
