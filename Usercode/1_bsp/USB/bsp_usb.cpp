@@ -57,7 +57,7 @@ void USB_Init(USB_Callback USB_Callback_Funtion)
  * @param Data 被发送的数据指针
  * @param Length 长度
  */
-uint8_t USB_Transmit_Data(uint8_t *Data, uint16_t Length)
+uint8_t  USB_Transmit_Data(uint8_t *Data, uint16_t Length)
 {
     return (CDC_Transmit_FS(Data, Length));
 }

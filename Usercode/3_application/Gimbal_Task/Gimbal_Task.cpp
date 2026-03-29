@@ -11,6 +11,7 @@
 #include "app_bmi088.h"
 #include "Serial.h"
 #include "usart.h"
+#include <cstdint>
 #include <stdbool.h>
 #include "usbd_cdc_if.h"
 #include "bsp_usb.h"
@@ -25,6 +26,10 @@
 /*  Task层全局变量 ------------------------------------------------------------*/
 bool Global_Init_Finished = false;
 bool is_gimbal_mode = false;
+
+gimtal_states_e last_gimtal_states = gimbal_states_aim_mode;
+
+float Yaw,Pitch;
 /*  Task层数据    ------------------------------------------------------------*/
 
 /**
@@ -127,7 +132,7 @@ void Gimbal_Pitch_Motor_PID_Init(void)
  */
 void Gimbal_DJI_Motor_Init(void)
 {
-  Gimbal_DJI_Motor_Group.Init(&hcan1, DJI_Motor_6020);
+  Gimbal_DJI_Motor_Group.Init(&hcan2, DJI_Motor_6020);
   DJI_Motor_Pitch.Init(DJI_Motor_6020, 0, &Gimbal_DJI_Motor_Group);
   DJI_Motor_Yaw.Init(DJI_Motor_6020, 0, &Gimbal_DJI_Motor_Group);
 }
@@ -141,29 +146,51 @@ void USB_CallBack(uint8_t *Buffer, uint16_t Length)
     return;
   }
   
+  //回显
+  USB_Transmit_Data(Buffer, Length);
+  
+  //判断包头包尾
+  if(Buffer[0] != 0xAA || Buffer[12] != 0x55)
+  {
+    return;
+  }
+
   //数据处理
 
   //通信约定是？
 
   //设置为一直通信？
 
-  //不发信息代表视觉掉线
+  //不发信息代表视觉掉线-->自动切换哨兵模式？
   //发信息就用开头告知是否检测到目标
 
   //加一个每次切换都触发need_change_mode!
 
-  if(Buffer[0] == 'a')
+  //包头后的第一帧 模式
+  // 0：哨兵模式
+  // 1：自瞄模式
+  if(Buffer[1] == 1)
   {
     gimtal_states = gimbal_states_aim_mode;
-   // 把解算目标存入target
-   //待加拿取数据相关
-   
-    //Aim_Pitch = ?
-    //Aim_Yaw = ?
+    if(last_gimtal_states != gimbal_states_aim_mode)
+    {
+      last_gimtal_states = gimbal_states_aim_mode;
+      need_change_mode = true;
+    }
+    //把解算目标存入Aim
+    float Delta_Pitch = Buffer[2]*100 + Buffer[3]*10 + Buffer[4] + Buffer[5] *0.1 + Buffer[6]*0.01;
+    float Delta_Yaw = Buffer[7]*100 + Buffer[8]*10 + Buffer[9] + Buffer[10] *0.1 + Buffer[11]*0.01;
+    Aim_Pitch = Pitch + Delta_Pitch;
+    Aim_Yaw = Yaw _ Delta_Yaw;
   }
-  else
+  else//哨兵模式
   {
     gimtal_states = gimbal_states_sentry_mode;
+    if(last_gimtal_states != gimbal_states_sentry_mode)
+    {
+      last_gimtal_states = gimbal_states_sentry_mode;
+      need_change_mode = true;
+    }
   }
   
 
@@ -212,7 +239,6 @@ extern "C" void main_Task_1ms(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    float Yaw,Pitch;
     //得到前向角 pitch和yaw 传给Yaw和Pitch变量
     app_bmi088_1ms_task_get_now_pitch_and_yaw(&Yaw,&Pitch);
 
@@ -222,14 +248,16 @@ extern "C" void main_Task_1ms(void *argument)
       if(need_change_mode)
       {
         gimbal_pid_reset();
+        need_change_mode = false;
         //待补充
       }
-      //设置target
+      //判断模式 设置target 弄成函数？
       if(gimtal_states == gimbal_states_aim_mode)//瞄准装甲板模式 接收视觉信息
       {
         //USB信息获取在回调中
 
         //获取到的信息存入PID目标（可能需要先做数据处理！！！！！！！！！）
+        //待加云台限位待加云台限位待加云台限位待加云台限位
         PID_Gimbal_Motor_Pitch.Set_Angle_Target(Aim_Pitch);
         PID_Gimbal_Motor_Yaw.Set_Angle_Target(Aim_Yaw);
 
@@ -240,6 +268,8 @@ extern "C" void main_Task_1ms(void *argument)
         Set_Yaw_and_Pitch_Motor_Target_Sentry();
       }
 
+      //上面设置完target 开始pid
+      
       //当前速度赋值 待确认赋值正确
       Gimbal_Push_Motor_Current_Speed_To_PID();
 
@@ -273,15 +303,25 @@ extern "C" void main_Task_1ms(void *argument)
  */
 void gimbal_task_init(void)
 {
+  //串口初始化
   Serial_Init(&huart1);
+
+  //BMI088初始化
   app_bmi088_init();
+
+  //USB初始化
+  USB_Init(USB_CallBack);
 
   if(is_gimbal_mode)
   {
-    USB_Init(USB_CallBack);
+    //云台大疆电机初始化
     Gimbal_DJI_Motor_Init();
+
+    //云台大疆电机PID初始化
     Gimbal_Yaw_Motor_PID_Init();
     Gimbal_Pitch_Motor_PID_Init();
+
+    //云台目标初始化
     gimbal_target_init();
   }
 }

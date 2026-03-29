@@ -29,10 +29,10 @@
  * @brief FreeRTOS相关
  * 
  */
-osThreadId_t imu_calculate_ThreadIdHandle = NULL;
-TaskHandle_t imu_calculate_TaskHandle = NULL;
+osThreadId_t imu_calculate_ThreadIdHandle = NULL;   //RTOS任务句柄
+TaskHandle_t imu_calculate_TaskHandle = NULL;       //RTOS任务通知句柄
 
-//位通知用
+//RTOS位通知用
 #define BMI088_Start_Get_Data   (1U << 0)
 #define BMI088_Get_Acc_OK       (1U << 1)
 #define BMI088_Get_Gyro_OK      (1U << 2)

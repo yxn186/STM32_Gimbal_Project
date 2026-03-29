@@ -25,7 +25,7 @@ extern bool Global_Init_Finished;
 
 /* Printf配置------------------------------------------------- */
 #ifndef STM32_PRINTF_USE_USB
-#define STM32_PRINTF_USE_USB 1
+#define STM32_PRINTF_USE_USB 0
 #endif
 
 #if STM32_PRINTF_USE_USB
