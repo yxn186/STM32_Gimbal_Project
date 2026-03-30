@@ -24,12 +24,24 @@
 #include <math.h>
 
 /*  Task层全局变量 ------------------------------------------------------------*/
+//全局初始化变量
 bool Global_Init_Finished = false;
+
+//自定义是否开启云台模式
+//不开启则纯读BMI数据
 bool is_gimbal_mode = false;
 
-gimtal_states_e last_gimtal_states = gimbal_states_aim_mode;
+/**
+ * @brief 相机USB在线状态
+ * 
+ */
+bool Camera_USB_Online = false;
 
-float Yaw,Pitch;
+//任务时间
+uint32_t Task_Time;
+
+//USB在线时间 判断超时用
+uint32_t Camera_USB_Online_Time;
 /*  Task层数据    ------------------------------------------------------------*/
 
 /**
@@ -37,6 +49,7 @@ float Yaw,Pitch;
  * 
  */
 gimtal_states_e gimtal_states = gimbal_states_aim_mode;
+gimtal_states_e last_gimtal_states = gimbal_states_aim_mode;
 
 /**
  * @brief 云台哨兵模式时间
@@ -51,7 +64,13 @@ uint32_t target_set_time;
 bool need_change_mode = false;
 
 /**
- * @brief 自瞄目标参数
+ * @brief 云台实际角度
+ * 
+ */
+float Yaw,Pitch;
+
+/**
+ * @brief 云台自瞄目标参数
  * 
  */
 float Aim_Pitch;
@@ -139,34 +158,25 @@ void Gimbal_DJI_Motor_Init(void)
 
 /*  Task层自定义回调函数类型 --------------------------------------------------*/
 
-void USB_CallBack(uint8_t *Buffer, uint16_t Length)
+void Camera_USB_CallBack(uint8_t *Buffer, uint16_t Length)
 {
-  if(Length == 0)
-  {
-    return;
-  }
-  
+  if(Length == 0 || Length < 13)  return;
+  if(Global_Init_Finished == false) return;
+  //判断包头包尾
+  if(Buffer[0] != 0xAA || Buffer[12] != 0x55) return;
+
   //回显
   USB_Transmit_Data(Buffer, Length);
-  
-  //判断包头包尾
-  if(Buffer[0] != 0xAA || Buffer[12] != 0x55)
-  {
-    return;
-  }
 
-  //数据处理
-
-  //通信约定是？
-
-  //设置为一直通信？
-
-  //不发信息代表视觉掉线-->自动切换哨兵模式？
+  //在线处理
+  Camera_USB_Online_Time = Task_Time;
+  Camera_USB_Online = true;
+  //不发信息代表视觉掉线-->自动切换哨兵模式
   //发信息就用开头告知是否检测到目标
 
-  //加一个每次切换都触发need_change_mode!
-
-  //包头后的第一帧 模式
+  //-------------解算数据--------------
+  
+  //包头后的第一帧 决定模式
   // 0：哨兵模式
   // 1：自瞄模式
   if(Buffer[1] == 1)
@@ -181,7 +191,7 @@ void USB_CallBack(uint8_t *Buffer, uint16_t Length)
     float Delta_Pitch = Buffer[2]*100 + Buffer[3]*10 + Buffer[4] + Buffer[5] *0.1 + Buffer[6]*0.01;
     float Delta_Yaw = Buffer[7]*100 + Buffer[8]*10 + Buffer[9] + Buffer[10] *0.1 + Buffer[11]*0.01;
     Aim_Pitch = Pitch + Delta_Pitch;
-    Aim_Yaw = Yaw _ Delta_Yaw;
+    Aim_Yaw = Yaw - Delta_Yaw;
   }
   else//哨兵模式
   {
@@ -192,8 +202,6 @@ void USB_CallBack(uint8_t *Buffer, uint16_t Length)
       need_change_mode = true;
     }
   }
-  
-
 }
 
 /*  Task层FreeRTOS函数 任务函数 -----------------------------------------------*/
@@ -233,18 +241,41 @@ extern "C" void Data_ptintf_task(void *argument)
   /* USER CODE END Data_ptintf_task */
 }
 
+/**
+ * @brief 时间计数任务
+ * 
+ */
+extern "C" void TimeCountTask(void *argument)
+{
+  /* USER CODE BEGIN TimeCountTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    if(Global_Init_Finished)
+    {
+      Task_Time++;
+    }
+    
+    osDelay(1);
+  }
+  /* USER CODE END TimeCountTask */
+}
+
 extern "C" void main_Task_1ms(void *argument)
 {
   /* USER CODE BEGIN main_Task_1ms */
   /* Infinite loop */
   for(;;)
   {
+    //相机USB离线检测
+    Camera_USB_Offline_Check();
+
     //得到前向角 pitch和yaw 传给Yaw和Pitch变量
     app_bmi088_1ms_task_get_now_pitch_and_yaw(&Yaw,&Pitch);
 
     if(is_gimbal_mode)
     {
-      //模式判断
+      //模式切换判断
       if(need_change_mode)
       {
         gimbal_pid_reset();
@@ -258,6 +289,7 @@ extern "C" void main_Task_1ms(void *argument)
 
         //获取到的信息存入PID目标（可能需要先做数据处理！！！！！！！！！）
         //待加云台限位待加云台限位待加云台限位待加云台限位
+        Aim_Pitch = PID_Gimbal_Motor_Pitch.Limit(Aim_Pitch, -42, 42);
         PID_Gimbal_Motor_Pitch.Set_Angle_Target(Aim_Pitch);
         PID_Gimbal_Motor_Yaw.Set_Angle_Target(Aim_Yaw);
 
@@ -310,7 +342,7 @@ void gimbal_task_init(void)
   app_bmi088_init();
 
   //USB初始化
-  USB_Init(USB_CallBack);
+  USB_Init(Camera_USB_CallBack);
 
   if(is_gimbal_mode)
   {
@@ -365,7 +397,7 @@ void gimbal_target_init(void)
 float Speed_Target_Sentry(void)
 {
   float f = 0.00025;//频率 = 周期倒数
-  return 5.0f * sinf(2.0f * PI * f * target_set_time);//返回
+  return 5.0f * sinf(2.0f * PI * f * target_set_time);//返回sin变化的目标值
 }
 
 /**
@@ -448,4 +480,32 @@ void Gimbal_Push_PID_Out_To_Motor_Control(void)
 {
   DJI_Motor_Pitch.Set_Out(PID_Gimbal_Motor_Pitch.Get_Out());
   DJI_Motor_Yaw.Set_Out(PID_Gimbal_Motor_Yaw.Get_Out());
+}
+
+/* USB 相关函数 ----------------------------------------------------------*/
+
+/**
+ * @brief 相机USB离线检测
+ * 
+ */
+void Camera_USB_Offline_Check(void)
+{
+  if(Global_Init_Finished == false)
+  {
+    return;
+  }
+
+  if(Task_Time - Camera_USB_Online_Time <= 100)
+  {
+    return;
+  }
+
+  Camera_USB_Online = false;
+
+  gimtal_states = gimbal_states_sentry_mode;
+  if(last_gimtal_states != gimbal_states_sentry_mode)
+  {
+    last_gimtal_states = gimbal_states_sentry_mode;
+    need_change_mode = true;
+  }
 }

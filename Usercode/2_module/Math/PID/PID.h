@@ -145,8 +145,6 @@ class Class_PID
     */
     void Reset(void);
 
-    protected:
-
     /**
     * @brief 限幅函数
     * 

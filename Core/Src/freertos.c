@@ -68,6 +68,13 @@ const osThreadAttr_t Data_ptintf_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityRealtime4,
 };
+/* Definitions for TimeCount */
+osThreadId_t TimeCountHandle;
+const osThreadAttr_t TimeCount_attributes = {
+  .name = "TimeCount",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityRealtime7,
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -77,6 +84,7 @@ const osThreadAttr_t Data_ptintf_attributes = {
 void StartInitTask(void *argument);
 void main_Task_1ms(void *argument);
 void Data_ptintf_task(void *argument);
+void TimeCountTask(void *argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -133,6 +141,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of Data_ptintf */
   Data_ptintfHandle = osThreadNew(Data_ptintf_task, NULL, &Data_ptintf_attributes);
+
+  /* creation of TimeCount */
+  TimeCountHandle = osThreadNew(TimeCountTask, NULL, &TimeCount_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -198,6 +209,24 @@ __weak void Data_ptintf_task(void *argument)
     osDelay(1);
   }
   /* USER CODE END Data_ptintf_task */
+}
+
+/* USER CODE BEGIN Header_TimeCountTask */
+/**
+* @brief Function implementing the TimeCount thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_TimeCountTask */
+__weak void TimeCountTask(void *argument)
+{
+  /* USER CODE BEGIN TimeCountTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END TimeCountTask */
 }
 
 /* Private application code --------------------------------------------------*/

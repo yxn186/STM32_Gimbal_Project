@@ -136,6 +136,12 @@ void Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(float Pitch,float Yaw);
  * 
  */
 void Gimbal_Push_PID_Out_To_Motor_Control(void);
+
+/**
+ * @brief 相机USB离线检测
+ * 
+ */
+void Camera_USB_Offline_Check(void);
 #ifdef __cplusplus
 }
 #endif
