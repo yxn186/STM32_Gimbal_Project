@@ -91,7 +91,13 @@ float Angle_Target_Sentry(void);
  * @brief 哨兵模式目标变换设置函数
  * 
  */
-void Set_Yaw_and_Pitch_Motor_Target_Sentry();
+void Set_Yaw_and_Pitch_Motor_Target_Sentry(void);
+
+/**
+ * @brief 哨兵模式目标变换设置函数
+ * 
+ */
+void Set_Yaw_and_Pitch_Motor_Speed_Target_Sentry();
 
 /**
  * @brief Yaw电机设置角度和速度当前值
@@ -142,6 +148,9 @@ void Gimbal_Push_PID_Out_To_Motor_Control(void);
  * 
  */
 void Camera_USB_Offline_Check(void);
+
+void Gimbal_Set_Front_Angle(float yaw,float roll,float pitch);
+
 #ifdef __cplusplus
 }
 #endif

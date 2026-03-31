@@ -31,8 +31,10 @@ void Class_DJI_Motor_Group::Init(CAN_HandleTypeDef *hcan, DJI_Motor_Type_Typedef
 
     Group_FIFO0 = this;
 
+    uint8_t CAN_FIlter_BANK = (hcan->Instance == CAN1) ? 0 : 14;
+
     CAN_Register_RxCallBack_FIFO0_Function(CAN_RxCallback_Entry);
-    CAN_Filter_Mask_Config(hcan, CAN_FILTER(0) | CAN_FIFO_0 | CAN_STDID | CAN_DATA_TYPE, 0x200, 0x7E0);
+    CAN_Filter_Mask_Config(hcan, CAN_FILTER(CAN_FIlter_BANK) | CAN_FIFO_0 | CAN_STDID | CAN_DATA_TYPE, 0x200, 0x7E0);
     CAN_Init(hcan);
 }
 

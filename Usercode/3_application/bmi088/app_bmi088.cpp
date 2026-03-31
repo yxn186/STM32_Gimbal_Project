@@ -23,7 +23,7 @@
 #include "task.h"
 #include "MyRTOS.h"
 
-#define biascalibration_target_samples 1000 //零飘校准目标次数
+#define biascalibration_target_samples 100 //零飘校准目标次数
 
 /**
  * @brief FreeRTOS相关
@@ -78,7 +78,7 @@ float roll = 0,pitch = 0,yaw = 0;
  * @brief 前向轴数据
  * 
  */
-float gimbal_pitch = 0,gimbal_yaw = 0;
+float gimbal_pitch = 0,gimbal_yaw = 0,gimbal_roll = 0;
 
 /**
  * @brief 一些时间
@@ -376,14 +376,16 @@ uint8_t app_bmi088_init_process_loop(void)
  * @brief BMI088 1ms周期任务 函数
  * 
  */
-void app_bmi088_1ms_task_get_now_pitch_and_yaw(float *Yaw,float *Picth)
+void app_bmi088_1ms_task_get_now_pitch_yaw_roll(float *Yaw,float *Picth,float *Roll)
 {   
     if(bmi088_init_state == init_state_finish)//完成则进入任务循环
     {
         //ZXY欧拉角转换为云台前向的pitch和yaw
-        euler_extrinsic_ZXY_to_front_yaw_pitch_deg(yaw,roll,pitch,&gimbal_yaw,&gimbal_pitch);
+        euler_extrinsic_ZXY_body_axes_to_front_yaw_pitch_roll_deg(yaw,roll,pitch,0,1,0,0,0,1,&gimbal_yaw,&gimbal_pitch,&gimbal_roll);
+        //euler_extrinsic_ZXY_to_front_yaw_pitch_deg(yaw,roll,pitch,&gimbal_yaw,&gimbal_pitch);
         *Picth = gimbal_pitch;
         *Yaw = gimbal_yaw;
+        *Roll = gimbal_roll;
     }
 }
 

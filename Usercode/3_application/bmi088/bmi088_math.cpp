@@ -593,6 +593,302 @@ void euler_extrinsic_ZXY_to_front_yaw_pitch_deg(float ex_z_deg, float ex_x_deg, 
     if (pitch_deg) *pitch_deg = pitch * RAD2DEG;
 }
 
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+} Vector3f;
+
+/**
+ * @brief 向量点积
+ */
+static float Vector3_Dot(Vector3f a, Vector3f b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+/**
+ * @brief 向量叉积
+ */
+static Vector3f Vector3_Cross(Vector3f a, Vector3f b)
+{
+    Vector3f result;
+    result.x = a.y * b.z - a.z * b.y;
+    result.y = a.z * b.x - a.x * b.z;
+    result.z = a.x * b.y - a.y * b.x;
+    return result;
+}
+
+/**
+ * @brief 向量模长
+ */
+static float Vector3_Norm(Vector3f v)
+{
+    return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+/**
+ * @brief 向量归一化
+ */
+static Vector3f Vector3_Normalize(Vector3f v)
+{
+    float norm = Vector3_Norm(v);
+
+    if (norm > 1e-6f)
+    {
+        v.x /= norm;
+        v.y /= norm;
+        v.z /= norm;
+    }
+
+    return v;
+}
+
+/**
+ * @brief 3x3旋转矩阵乘向量，v_world = R * v_body
+ */
+static Vector3f RotationMatrix_Mul_Vector(const float R[3][3], Vector3f v)
+{
+    Vector3f result;
+    result.x = R[0][0] * v.x + R[0][1] * v.y + R[0][2] * v.z;
+    result.y = R[1][0] * v.x + R[1][1] * v.y + R[1][2] * v.z;
+    result.z = R[2][0] * v.x + R[2][1] * v.y + R[2][2] * v.z;
+    return result;
+}
+
+/**
+ * @brief 由“前向轴 + 上方向轴”计算 yaw / pitch / roll
+ *
+ * 说明：
+ * 1. f_world 是你定义的“前向轴”在世界系下的方向
+ * 2. u_world 是你定义的“上方向轴”在世界系下的方向
+ * 3. yaw / pitch 由前向轴决定
+ * 4. roll 由上方向轴相对“零滚转参考方向”的偏转决定
+ *
+ * @param f_world   前向轴（世界系）
+ * @param u_world   上方向轴（世界系）
+ * @param yaw_deg   输出 yaw（角度）
+ * @param pitch_deg 输出 pitch（角度）
+ * @param roll_deg  输出 roll（角度）
+ */
+static void ForwardUp_To_YawPitchRoll_Deg(Vector3f f_world,
+                                          Vector3f u_world,
+                                          float *yaw_deg,
+                                          float *pitch_deg,
+                                          float *roll_deg)
+{
+    f_world = Vector3_Normalize(f_world);
+    u_world = Vector3_Normalize(u_world);
+
+    /* ---------- yaw / pitch：只由前向轴决定 ---------- */
+    float yaw   = atan2f(f_world.y, f_world.x);
+    float pitch = atan2f(-f_world.z,
+                         sqrtf(f_world.x * f_world.x + f_world.y * f_world.y));
+
+    /* ---------- roll：需要“前向轴 + 上方向轴” ---------- */
+    /* 世界系 +Z 作为默认“零滚转参考上方向” */
+    Vector3f world_up = {0.0f, 0.0f, 1.0f};
+
+    /* 把 world_up 投影到垂直于前向轴的平面中 */
+    float dot_ref_f = Vector3_Dot(world_up, f_world);
+    Vector3f ref_up;
+    ref_up.x = world_up.x - dot_ref_f * f_world.x;
+    ref_up.y = world_up.y - dot_ref_f * f_world.y;
+    ref_up.z = world_up.z - dot_ref_f * f_world.z;
+
+    /* 如果前向轴几乎平行 world_up，会退化；改用 world_y */
+    if (Vector3_Norm(ref_up) < 1e-6f)
+    {
+        world_up.x = 0.0f;
+        world_up.y = 1.0f;
+        world_up.z = 0.0f;
+
+        dot_ref_f = Vector3_Dot(world_up, f_world);
+        ref_up.x = world_up.x - dot_ref_f * f_world.x;
+        ref_up.y = world_up.y - dot_ref_f * f_world.y;
+        ref_up.z = world_up.z - dot_ref_f * f_world.z;
+    }
+
+    ref_up = Vector3_Normalize(ref_up);
+
+    /* 把实际 up 轴也投影到垂直于前向轴的平面中 */
+    float dot_u_f = Vector3_Dot(u_world, f_world);
+    Vector3f proj_up;
+    proj_up.x = u_world.x - dot_u_f * f_world.x;
+    proj_up.y = u_world.y - dot_u_f * f_world.y;
+    proj_up.z = u_world.z - dot_u_f * f_world.z;
+    proj_up = Vector3_Normalize(proj_up);
+
+    float roll = 0.0f;
+
+    if (Vector3_Norm(proj_up) > 1e-6f)
+    {
+        Vector3f cross_value = Vector3_Cross(ref_up, proj_up);
+        float sin_roll = Vector3_Dot(f_world, cross_value);
+        float cos_roll = Vector3_Dot(ref_up, proj_up);
+        roll = atan2f(sin_roll, cos_roll);
+    }
+
+    if (yaw_deg)   *yaw_deg   = yaw * RAD2DEG;
+    if (pitch_deg) *pitch_deg = pitch * RAD2DEG;
+    if (roll_deg)  *roll_deg  = roll * RAD2DEG;
+}
+
+/**
+ * @brief 构造外旋 ZYX 的旋转矩阵
+ *
+ * R = Rx(x) * Ry(y) * Rz(z)
+ *
+ * @param ex_z_deg 外旋 Z（deg）
+ * @param ex_y_deg 外旋 Y（deg）
+ * @param ex_x_deg 外旋 X（deg）
+ * @param R        输出旋转矩阵
+ */
+static void Build_RotationMatrix_Extrinsic_ZYX(float ex_z_deg,
+                                               float ex_y_deg,
+                                               float ex_x_deg,
+                                               float R[3][3])
+{
+    float z = ex_z_deg * DEG2RAD;
+    float y = ex_y_deg * DEG2RAD;
+    float x = ex_x_deg * DEG2RAD;
+
+    float sx = sinf(x), cx = cosf(x);
+    float sy = sinf(y), cy = cosf(y);
+    float sz = sinf(z), cz = cosf(z);
+
+    R[0][0] = cy * cz;
+    R[0][1] = -cy * sz;
+    R[0][2] = sy;
+
+    R[1][0] = cx * sz + sx * sy * cz;
+    R[1][1] = cx * cz - sx * sy * sz;
+    R[1][2] = -sx * cy;
+
+    R[2][0] = sx * sz - cx * sy * cz;
+    R[2][1] = sx * cz + cx * sy * sz;
+    R[2][2] = cx * cy;
+}
+
+/**
+ * @brief 构造外旋 ZXY 的旋转矩阵
+ *
+ * R = Ry(y) * Rx(x) * Rz(z)
+ *
+ * @param ex_z_deg 外旋 Z（deg）
+ * @param ex_x_deg 外旋 X（deg）
+ * @param ex_y_deg 外旋 Y（deg）
+ * @param R        输出旋转矩阵
+ */
+static void Build_RotationMatrix_Extrinsic_ZXY(float ex_z_deg,
+                                               float ex_x_deg,
+                                               float ex_y_deg,
+                                               float R[3][3])
+{
+    float z = ex_z_deg * DEG2RAD;
+    float x = ex_x_deg * DEG2RAD;
+    float y = ex_y_deg * DEG2RAD;
+
+    float sx = sinf(x), cx = cosf(x);
+    float sy = sinf(y), cy = cosf(y);
+    float sz = sinf(z), cz = cosf(z);
+
+    R[0][0] = cy * cz + sy * sx * sz;
+    R[0][1] = sy * sx * cz - cy * sz;
+    R[0][2] = sy * cx;
+
+    R[1][0] = cx * sz;
+    R[1][1] = cx * cz;
+    R[1][2] = -sx;
+
+    R[2][0] = sx * sz * cy - sy * cz;
+    R[2][1] = sx * cy * cz + sy * sz;
+    R[2][2] = cx * cy;
+}
+
+/**
+ * @brief 外旋ZYX欧拉角 + 自定义前向轴/上方向轴 -> yaw / pitch / roll
+ *
+ * @param ex_z_deg  外旋Z
+ * @param ex_y_deg  外旋Y
+ * @param ex_x_deg  外旋X
+ * @param f_body_x  机体系前向轴 x 分量
+ * @param f_body_y  机体系前向轴 y 分量
+ * @param f_body_z  机体系前向轴 z 分量
+ * @param u_body_x  机体系上方向轴 x 分量
+ * @param u_body_y  机体系上方向轴 y 分量
+ * @param u_body_z  机体系上方向轴 z 分量
+ * @param yaw_deg   输出 yaw
+ * @param pitch_deg 输出 pitch
+ * @param roll_deg  输出 roll
+ */
+void euler_extrinsic_ZYX_body_axes_to_front_yaw_pitch_roll_deg(float ex_z_deg,
+                                                               float ex_y_deg,
+                                                               float ex_x_deg,
+                                                               float f_body_x,
+                                                               float f_body_y,
+                                                               float f_body_z,
+                                                               float u_body_x,
+                                                               float u_body_y,
+                                                               float u_body_z,
+                                                               float *yaw_deg,
+                                                               float *pitch_deg,
+                                                               float *roll_deg)
+{
+    float R[3][3];
+    Build_RotationMatrix_Extrinsic_ZYX(ex_z_deg, ex_y_deg, ex_x_deg, R);
+
+    Vector3f f_body = {f_body_x, f_body_y, f_body_z};
+    Vector3f u_body = {u_body_x, u_body_y, u_body_z};
+
+    Vector3f f_world = RotationMatrix_Mul_Vector(R, f_body);
+    Vector3f u_world = RotationMatrix_Mul_Vector(R, u_body);
+
+    ForwardUp_To_YawPitchRoll_Deg(f_world, u_world, yaw_deg, pitch_deg, roll_deg);
+}
+
+/**
+ * @brief 外旋ZXY欧拉角 + 自定义前向轴/上方向轴 -> yaw / pitch / roll
+ *
+ * @param ex_z_deg  外旋Z
+ * @param ex_x_deg  外旋X
+ * @param ex_y_deg  外旋Y
+ * @param f_body_x  机体系前向轴 x 分量
+ * @param f_body_y  机体系前向轴 y 分量
+ * @param f_body_z  机体系前向轴 z 分量
+ * @param u_body_x  机体系上方向轴 x 分量
+ * @param u_body_y  机体系上方向轴 y 分量
+ * @param u_body_z  机体系上方向轴 z 分量
+ * @param yaw_deg   输出 yaw
+ * @param pitch_deg 输出 pitch
+ * @param roll_deg  输出 roll
+ */
+void euler_extrinsic_ZXY_body_axes_to_front_yaw_pitch_roll_deg(float ex_z_deg,
+                                                               float ex_x_deg,
+                                                               float ex_y_deg,
+                                                               float f_body_x,
+                                                               float f_body_y,
+                                                               float f_body_z,
+                                                               float u_body_x,
+                                                               float u_body_y,
+                                                               float u_body_z,
+                                                               float *yaw_deg,
+                                                               float *pitch_deg,
+                                                               float *roll_deg)
+{
+    float R[3][3];
+    Build_RotationMatrix_Extrinsic_ZXY(ex_z_deg, ex_x_deg, ex_y_deg, R);
+
+    Vector3f f_body = {f_body_x, f_body_y, f_body_z};
+    Vector3f u_body = {u_body_x, u_body_y, u_body_z};
+
+    Vector3f f_world = RotationMatrix_Mul_Vector(R, f_body);
+    Vector3f u_world = RotationMatrix_Mul_Vector(R, u_body);
+
+    ForwardUp_To_YawPitchRoll_Deg(f_world, u_world, yaw_deg, pitch_deg, roll_deg);
+}
+
 /* ===================== 数据接口 ===================== */
 float BMI088_GetRollDeg(void)          
 { 

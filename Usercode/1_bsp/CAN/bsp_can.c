@@ -70,11 +70,21 @@ void CAN_Filter_Mask_Config(CAN_HandleTypeDef *hcan, uint8_t Object_Para, uint32
     return;
   }
 
-  //过滤器编号配置 针对c8t6 防止超
+  //过滤器编号配置 防止超
   uint8_t FilterBank = (Object_Para >> 3) & 0x1F;
-  if(FilterBank > 13)
+  if (hcan->Instance == CAN1)
   {
-    return;
+      if (FilterBank >= 14)
+      {
+          return;
+      }
+  }
+  else if (hcan->Instance == CAN2)
+  {
+      if (FilterBank < 14 || FilterBank > 27)
+      {
+          return;
+      }
   }
 
   // 标准帧
@@ -90,7 +100,7 @@ void CAN_Filter_Mask_Config(CAN_HandleTypeDef *hcan, uint8_t Object_Para, uint32
   Can_FilterInitstructure.FilterMaskIdLow = 0x0000;
 
   // 滤波器配置
-  // 滤波器序号（f103是0-13）, 0-27, 共28个滤波器, can1是0~13, can2是14~27
+  // 滤波器序号0-27, 共28个滤波器, can1是0~13, can2是14~27
   Can_FilterInitstructure.FilterBank = FilterBank;
   // 滤波器模式, 设置ID掩码模式
   Can_FilterInitstructure.FilterMode = CAN_FILTERMODE_IDMASK;
@@ -101,7 +111,6 @@ void CAN_Filter_Mask_Config(CAN_HandleTypeDef *hcan, uint8_t Object_Para, uint32
   
   // 从机模式配置
   // 从机模式选择开始单元, 一般均分14个单元给CAN1和CAN2
-  //F103 仅 CAN1，此字段对 CAN2 分配无实际作用，按 HAL 要求给默认值 14。
   Can_FilterInitstructure.SlaveStartFilterBank = 14;
 
   // 滤波器绑定FIFOx, 只能绑定一个

@@ -91,6 +91,64 @@ uint8_t bmi088_biascalibration_pushsampletocalculate(int16_t gyro_raw_x,int16_t 
 void bmi088_complementaryfilter_1(int16_t gyro_raw_x,int16_t gyro_raw_y,int16_t gyro_raw_z,int16_t acc_raw_x,int16_t acc_raw_y,int16_t acc_raw_z,float dt_seconds);
 void bmi088_complementaryfilter_2(int16_t gyro_raw_x,int16_t gyro_raw_y,int16_t gyro_raw_z,int16_t acc_raw_x,int16_t acc_raw_y,int16_t acc_raw_z,float dt_seconds);
 
+/**
+ * @brief 外旋ZYX欧拉角 + 自定义前向轴/上方向轴 -> yaw / pitch / roll
+ *
+ * @param ex_z_deg  外旋Z
+ * @param ex_y_deg  外旋Y
+ * @param ex_x_deg  外旋X
+ * @param f_body_x  机体系前向轴 x 分量
+ * @param f_body_y  机体系前向轴 y 分量
+ * @param f_body_z  机体系前向轴 z 分量
+ * @param u_body_x  机体系上方向轴 x 分量
+ * @param u_body_y  机体系上方向轴 y 分量
+ * @param u_body_z  机体系上方向轴 z 分量
+ * @param yaw_deg   输出 yaw
+ * @param pitch_deg 输出 pitch
+ * @param roll_deg  输出 roll
+ */
+void euler_extrinsic_ZYX_body_axes_to_front_yaw_pitch_roll_deg(float ex_z_deg,
+                                                               float ex_y_deg,
+                                                               float ex_x_deg,
+                                                               float f_body_x,
+                                                               float f_body_y,
+                                                               float f_body_z,
+                                                               float u_body_x,
+                                                               float u_body_y,
+                                                               float u_body_z,
+                                                               float *yaw_deg,
+                                                               float *pitch_deg,
+                                                               float *roll_deg);
+                                                               
+/**
+ * @brief 外旋ZXY欧拉角 + 自定义前向轴/上方向轴 -> yaw / pitch / roll
+ *
+ * @param ex_z_deg  外旋Z
+ * @param ex_x_deg  外旋X
+ * @param ex_y_deg  外旋Y
+ * @param f_body_x  机体系前向轴 x 分量
+ * @param f_body_y  机体系前向轴 y 分量
+ * @param f_body_z  机体系前向轴 z 分量
+ * @param u_body_x  机体系上方向轴 x 分量
+ * @param u_body_y  机体系上方向轴 y 分量
+ * @param u_body_z  机体系上方向轴 z 分量
+ * @param yaw_deg   输出 yaw
+ * @param pitch_deg 输出 pitch
+ * @param roll_deg  输出 roll
+ */
+void euler_extrinsic_ZXY_body_axes_to_front_yaw_pitch_roll_deg(float ex_z_deg,
+                                                               float ex_x_deg,
+                                                               float ex_y_deg,
+                                                               float f_body_x,
+                                                               float f_body_y,
+                                                               float f_body_z,
+                                                               float u_body_x,
+                                                               float u_body_y,
+                                                               float u_body_z,
+                                                               float *yaw_deg,
+                                                               float *pitch_deg,
+                                                               float *roll_deg);
+
 void euler_extrinsic_ZYX_to_intrinsic_ZYX_deg(float ex_z_deg, float ex_y_deg, float ex_x_deg,float *in_yaw_deg, float *in_pitch_deg, float *in_roll_deg);
 
 void euler_extrinsic_ZXY_to_intrinsic_ZXY_deg(float ex_z_deg, float ex_x_deg, float ex_y_deg,float *in_z_deg, float *in_x_deg, float *in_y_deg);
