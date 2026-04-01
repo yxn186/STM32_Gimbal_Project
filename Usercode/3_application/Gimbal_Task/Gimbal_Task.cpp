@@ -23,6 +23,7 @@
 #include "MyMath.h"
 #include <math.h>
 #include "Gimbal.h"
+#include <stdint.h>
 
 typedef struct
 {
@@ -191,6 +192,40 @@ void Gimbal_DJI_Motor_Init(void)
 
 /*  Task层自定义回调函数类型 --------------------------------------------------*/
 
+#pragma pack(push, 1)
+/**
+ * @brief 相机USB接收数据帧
+ *
+ * Delta_Yaw_10   : Yaw角度增量，单位 0.1度
+ * Delta_Pitch_10 : Pitch角度增量，单位 0.1度
+ *
+ * 例如：
+ *  12.3°  -> 123
+ *  -8.7°  -> -87
+ */
+typedef struct
+{
+    uint8_t Frame_Header;      // 0xAA
+    uint8_t Mode;              // 0: 哨兵模式, 1: 自瞄模式
+    int16_t Delta_Yaw_10;      // 单位 0.1°
+    int16_t Delta_Pitch_10;    // 单位 0.1°
+    uint8_t Frame_Tail;        // 0x55
+} Struct_Camera_USB_Frame_t;
+#pragma pack(pop)
+
+/**
+ * @brief USB接收联合体
+ *
+ * Raw  用来接收原始字节
+ * Data 用来按结构体字段解析
+ */
+typedef union
+{
+    Struct_Camera_USB_Frame_t Data;
+    uint8_t Raw[sizeof(Struct_Camera_USB_Frame_t)];
+} Union_Camera_USB_Frame;
+
+
 void Camera_USB_CallBack(uint8_t *Buffer, uint16_t Length)
 {
   if(Length == 0)  return;
@@ -203,10 +238,21 @@ void Camera_USB_CallBack(uint8_t *Buffer, uint16_t Length)
   //USB_Printf("USB收到数据长度：%d\r\n",Length);
   //Serial_Send_Data(Buffer,Length);
 
-  if(Length != 13)  return;
+  // 长度必须和协议长度一致
+  if (Length != sizeof(Union_Camera_USB_Frame)) return;
+  
+  //拷贝数据
+  Union_Camera_USB_Frame Receive_Frame;
+  memcpy(Receive_Frame.Raw, Buffer, sizeof(Receive_Frame.Raw));
+
+  // 判断包头包尾
+  if (Receive_Frame.Data.Frame_Header != 0xAA || Receive_Frame.Data.Frame_Tail != 0x55)
+  {
+    return;
+  }
 
   //判断包头包尾
-  if(Buffer[0] != 0xAA || Buffer[12] != 0x55) return;
+  // if(Buffer[0] != 0xAA || Buffer[12] != 0x55) return;
 
   //在线处理
   Camera_USB_Online_Time = Task_Time;
@@ -215,48 +261,77 @@ void Camera_USB_CallBack(uint8_t *Buffer, uint16_t Length)
   //发信息就用开头告知是否检测到目标
 
   //-------------解算数据--------------
-  
-  //包头后的第一帧 决定模式
-  // 0：哨兵模式
-  // 1：自瞄模式
-  if(Buffer[1] == 1)
+  // 模式处理
+  if (Receive_Frame.Data.Mode == 1)
   {
-    //把解算目标存入Aim
-    
-    float Delta_Yaw = Buffer[3]*100 + Buffer[4]*10 + Buffer[5] + Buffer[6] *0.1;
-    float Delta_Pitch = Buffer[8]*100 + Buffer[9]*10 + Buffer[10] + Buffer[11] *0.1;
+    gimtal_states = gimbal_states_aim_mode;
 
-    if(Buffer[2] == 0)
+    if (last_gimtal_states != gimbal_states_aim_mode)
     {
-      Delta_Yaw = -Delta_Yaw;
+        last_gimtal_states = gimbal_states_aim_mode;
+        need_change_mode = true;
     }
 
-    if(Buffer[7] == 0)
-    {
-      Delta_Pitch = -Delta_Pitch;
-    }
-    
+    float Delta_Yaw = Receive_Frame.Data.Delta_Yaw_10 * 0.1f;
+    float Delta_Pitch = Receive_Frame.Data.Delta_Pitch_10 * 0.1f;
+
     Gimbal.Set_Target_Front_Continuous_Pitch(Delta_Pitch);
     Gimbal.Set_Target_Front_Continuous_Yaw(Delta_Yaw);
 
-    Serial_Printf("Delta_Pitch:%f Delta_Yaw:%f\r\n",Delta_Pitch,Delta_Yaw);
-    //USB_Printf("Delta_Pitch:%f Delta_Yaw:%f\r\n",Delta_Pitch,Delta_Yaw);
-    gimtal_states = gimbal_states_aim_mode;
-    if(last_gimtal_states != gimbal_states_aim_mode)
-    {
-      last_gimtal_states = gimbal_states_aim_mode;
-      need_change_mode = true;
-    }
+    Serial_Printf("Delta_Pitch:%f Delta_Yaw:%f\r\n", Delta_Pitch, Delta_Yaw);
   }
-  else//哨兵模式
+  else
   {
     gimtal_states = gimbal_states_sentry_mode;
-    if(last_gimtal_states != gimbal_states_sentry_mode)
+
+    if (last_gimtal_states != gimbal_states_sentry_mode)
     {
       last_gimtal_states = gimbal_states_sentry_mode;
       need_change_mode = true;
     }
   }
+
+  //包头后的第一帧 决定模式
+  // 0：哨兵模式
+  // 1：自瞄模式
+  // if(Buffer[1] == 1)
+  // {
+  //   //把解算目标存入Aim
+    
+  //   float Delta_Yaw = Buffer[3]*100 + Buffer[4]*10 + Buffer[5] + Buffer[6] *0.1;
+  //   float Delta_Pitch = Buffer[8]*100 + Buffer[9]*10 + Buffer[10] + Buffer[11] *0.1;
+
+  //   if(Buffer[2] == 0)
+  //   {
+  //     Delta_Yaw = -Delta_Yaw;
+  //   }
+
+  //   if(Buffer[7] == 0)
+  //   {
+  //     Delta_Pitch = -Delta_Pitch;
+  //   }
+    
+  //   Gimbal.Set_Target_Front_Continuous_Pitch(Delta_Pitch);
+  //   Gimbal.Set_Target_Front_Continuous_Yaw(Delta_Yaw);
+
+  //   Serial_Printf("Delta_Pitch:%f Delta_Yaw:%f\r\n",Delta_Pitch,Delta_Yaw);
+  //   //USB_Printf("Delta_Pitch:%f Delta_Yaw:%f\r\n",Delta_Pitch,Delta_Yaw);
+  //   gimtal_states = gimbal_states_aim_mode;
+  //   if(last_gimtal_states != gimbal_states_aim_mode)
+  //   {
+  //     last_gimtal_states = gimbal_states_aim_mode;
+  //     need_change_mode = true;
+  //   }
+  // }
+  // else//哨兵模式
+  // {
+  //   gimtal_states = gimbal_states_sentry_mode;
+  //   if(last_gimtal_states != gimbal_states_sentry_mode)
+  //   {
+  //     last_gimtal_states = gimbal_states_sentry_mode;
+  //     need_change_mode = true;
+  //   }
+  // }
 }
 
 /*  Task层FreeRTOS函数 任务函数 -----------------------------------------------*/
