@@ -155,6 +155,9 @@ float Speed_Target_Sentry_Pitch(void);
 
 float Angle_Target_Sentry_Pitch(void);
 
+float Angle_Target_Sentry_Gimbal_Yaw(void);
+
+float Angle_Target_Sentry_Gimbal_Pitch(void);
 #ifdef __cplusplus
 }
 #endif

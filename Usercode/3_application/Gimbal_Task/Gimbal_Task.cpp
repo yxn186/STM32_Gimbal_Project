@@ -30,10 +30,14 @@ typedef struct
   uint32_t speed_period_ms;
   float angle_amplitude;
   uint32_t angle_period_ms;
+  float Yaw_f;
+  float Yaw_a;
+  float Pitch_f;
+  float Pitch_a;
 
 }Temp_Data;
 
-Temp_Data Temp_Control_Data ={0.5,5000,38,6000};
+Temp_Data Temp_Control_Data ={0.5,2000,38,2000,0.8,40,0.4,38};
 
 
 /*  Task层全局变量 ------------------------------------------------------------*/
@@ -158,17 +162,17 @@ void Gimbal_Pitch_Motor_PID_Init(void)
   PID_Gimbal_Motor_Pitch.Kp_s = 820;
   PID_Gimbal_Motor_Pitch.Ki_s = 34;
   PID_Gimbal_Motor_Pitch.Kd_s = 10;
-  PID_Gimbal_Motor_Pitch.Kp_a = 0.2;
+  PID_Gimbal_Motor_Pitch.Kp_a = 0.22;
   PID_Gimbal_Motor_Pitch.Ki_a = 0;
   PID_Gimbal_Motor_Pitch.Kd_a = 0;
 
   PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 80;
   PID_Gimbal_Motor_Pitch.ErrorInt_Low_s  = -80;
-  PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 20;
-  PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = -20;
+  PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 0;
+  PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = -0;
 
-  PID_Gimbal_Motor_Pitch.Speed_Target_High = 5;
-  PID_Gimbal_Motor_Pitch.Speed_Target_Low = -5;
+  PID_Gimbal_Motor_Pitch.Speed_Target_High = 10;
+  PID_Gimbal_Motor_Pitch.Speed_Target_Low = -10;
 
   PID_Gimbal_Motor_Pitch.Out_High = 4000;
   PID_Gimbal_Motor_Pitch.Out_Low  = -4000;
@@ -190,17 +194,19 @@ void Gimbal_DJI_Motor_Init(void)
 void Camera_USB_CallBack(uint8_t *Buffer, uint16_t Length)
 {
   if(Length == 0)  return;
-  //if(Length != 13)  return;
+  
   if(Global_Init_Finished == false) return;
 
   //回显
   USB_Transmit_Data(Buffer, Length);
-  STM32_Printf("%s",Buffer);
+  STM32_Printf("USB收到数据长度：%d\r\n",Length);
+  //USB_Printf("USB收到数据长度：%d\r\n",Length);
+  //Serial_Send_Data(Buffer,Length);
+
+  if(Length != 13)  return;
 
   //判断包头包尾
   if(Buffer[0] != 0xAA || Buffer[12] != 0x55) return;
-
-  
 
   //在线处理
   Camera_USB_Online_Time = Task_Time;
@@ -215,18 +221,32 @@ void Camera_USB_CallBack(uint8_t *Buffer, uint16_t Length)
   // 1：自瞄模式
   if(Buffer[1] == 1)
   {
+    //把解算目标存入Aim
+    
+    float Delta_Yaw = Buffer[3]*100 + Buffer[4]*10 + Buffer[5] + Buffer[6] *0.1;
+    float Delta_Pitch = Buffer[8]*100 + Buffer[9]*10 + Buffer[10] + Buffer[11] *0.1;
+
+    if(Buffer[2] == 0)
+    {
+      Delta_Yaw = -Delta_Yaw;
+    }
+
+    if(Buffer[7] == 0)
+    {
+      Delta_Pitch = -Delta_Pitch;
+    }
+    
+    Gimbal.Set_Target_Front_Continuous_Pitch(Delta_Pitch);
+    Gimbal.Set_Target_Front_Continuous_Yaw(Delta_Yaw);
+
+    Serial_Printf("Delta_Pitch:%f Delta_Yaw:%f\r\n",Delta_Pitch,Delta_Yaw);
+    //USB_Printf("Delta_Pitch:%f Delta_Yaw:%f\r\n",Delta_Pitch,Delta_Yaw);
     gimtal_states = gimbal_states_aim_mode;
     if(last_gimtal_states != gimbal_states_aim_mode)
     {
       last_gimtal_states = gimbal_states_aim_mode;
       need_change_mode = true;
     }
-    //把解算目标存入Aim
-    float Delta_Pitch = Buffer[2]*100 + Buffer[3]*10 + Buffer[4] + Buffer[5] *0.1 + Buffer[6]*0.01;
-    float Delta_Yaw = Buffer[7]*100 + Buffer[8]*10 + Buffer[9] + Buffer[10] *0.1 + Buffer[11]*0.01;
-
-    Gimbal.Set_Target_Front_Continuous_Pitch(Delta_Pitch);
-    Gimbal.Set_Target_Front_Continuous_Yaw(Delta_Yaw);
   }
   else//哨兵模式
   {
@@ -318,7 +338,6 @@ extern "C" void main_Task_1ms(void *argument)
       {
         gimbal_pid_reset();
         need_change_mode = false;
-        //待补充
       }
       //判断模式 设置target 弄成函数？
       if(gimtal_states == gimbal_states_aim_mode)//瞄准装甲板模式 接收视觉信息
@@ -326,21 +345,19 @@ extern "C" void main_Task_1ms(void *argument)
         //USB信息获取在回调中
 
         //获取到的信息存入PID目标（可能需要先做数据处理！！！！！！！！！）
-        //待加云台限位待加云台限位待加云台限位待加云台限位
-        PID_Gimbal_Motor_Pitch.Set_Angle_Target(PID_Gimbal_Motor_Pitch.Limit(Gimbal.Get_Target_Front_Continuous_Pitch(), -42.0f, 42.0f));
+        PID_Gimbal_Motor_Pitch.Set_Angle_Target(PID_Gimbal_Motor_Pitch.Limit(Gimbal.Get_Target_Front_Continuous_Pitch(), -40.0f, 40.0f));
         PID_Gimbal_Motor_Yaw.Set_Angle_Target(Gimbal.Get_Target_Front_Continuous_Yaw());
-
       }
       else if(gimtal_states == gimbal_states_sentry_mode)//哨兵模式 自己乱转
       {
         target_set_time++;
         if(is_gimbal_target_mode)
         {
-          Set_Yaw_and_Pitch_Motor_Target_Sentry();
+          Set_Yaw_and_Pitch_Motor_Target_Sentry();//角度
         }
         else
         {
-          Set_Yaw_and_Pitch_Motor_Speed_Target_Sentry();
+          Set_Yaw_and_Pitch_Motor_Speed_Target_Sentry();//速度
         }
       }
 
@@ -441,6 +458,39 @@ void gimbal_target_init(void)
 }
 
 /**
+ * @brief 哨兵模式 Yaw 角度目标函数
+ *        以 Task_Time 为时间基准，左右平滑扫描，范围 -70° ~ +70°
+ * 
+ * @return float Yaw目标角度（度）
+ */
+float Angle_Target_Sentry_Gimbal_Yaw(void)
+{
+  float time_s = Task_Time * 0.001f;   // Task_Time单位是1ms，这里转成秒
+
+  float amplitude = Temp_Control_Data.Yaw_a;             // 扫描幅值：±70°
+  float frequency = Temp_Control_Data.Yaw_f;             // 频率 0.20Hz，对应周期 5s
+
+  return amplitude * sinf(2.0f * PI * frequency * time_s);
+}
+
+/**
+ * @brief 哨兵模式 Pitch 角度目标函数
+ *        以 Task_Time 为时间基准，上下平滑扫描，范围 -38° ~ +38°
+ * 
+ * @return float Pitch目标角度（度）
+ */
+float Angle_Target_Sentry_Gimbal_Pitch(void)
+{
+  float time_s = Task_Time * 0.001f;   // Task_Time单位是1ms，这里转成秒
+
+  float amplitude = Temp_Control_Data.Pitch_a;             // 扫描幅值：±38°
+  float frequency = Temp_Control_Data.Pitch_f;             // 频率 0.12Hz，对应周期约 8.33s
+  float phase = PI / 2.0f;             // 加一个相位差，避免和Yaw完全同步
+
+  return amplitude * sinf(2.0f * PI * frequency * time_s + phase);
+}
+
+/**
  * @brief 哨兵模式速度目标变换设置函数
  * 
  * @return float 速度目标值
@@ -533,10 +583,12 @@ float Angle_Target_Sentry_Pitch(void)
  */
 void Set_Yaw_and_Pitch_Motor_Target_Sentry(void)
 {
-  PID_Gimbal_Motor_Yaw.Set_Angle_Target(Angle_Target_Sentry());
+  PID_Gimbal_Motor_Yaw.Set_Angle_Target(Angle_Target_Sentry_Gimbal_Yaw());
+  //PID_Gimbal_Motor_Yaw.Set_Angle_Target(Angle_Target_Sentry());
   //PID_Gimbal_Motor_Yaw.Set_Speed_Target(Speed_Target_Sentry());
 
-  PID_Gimbal_Motor_Pitch.Set_Angle_Target(Angle_Target_Sentry_Pitch());
+  PID_Gimbal_Motor_Pitch.Set_Angle_Target(Angle_Target_Sentry_Gimbal_Pitch());
+  //PID_Gimbal_Motor_Pitch.Set_Angle_Target(Angle_Target_Sentry_Pitch());
   //PID_Gimbal_Motor_Pitch.Set_Speed_Target(Speed_Target_Sentry());
 }
 
