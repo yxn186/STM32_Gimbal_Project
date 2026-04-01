@@ -12,6 +12,7 @@
 #include "Serial.h"
 #include "gimbal_task.h"
 #include "usart.h"
+#include <cstdint>
 #include <stdbool.h>
 #include "usbd_cdc_if.h"
 #include "bsp_usb.h"
@@ -24,6 +25,8 @@
 #include <math.h>
 #include "Gimbal.h"
 #include <stdint.h>
+
+uint8_t temp;
 
 typedef struct
 {
@@ -38,7 +41,7 @@ typedef struct
 
 }Temp_Data;
 
-Temp_Data Temp_Control_Data ={0.5,2000,38,2000,0.8,40,0.4,38};
+Temp_Data Temp_Control_Data ={0.5,2000,38,2000,0.4,40,0.2,38};
 
 
 /*  Task层全局变量 ------------------------------------------------------------*/
@@ -138,14 +141,14 @@ void Gimbal_Yaw_Motor_PID_Init(void)
   PID_Gimbal_Motor_Yaw.Kp_s = 1550;
   PID_Gimbal_Motor_Yaw.Ki_s = 105;
   PID_Gimbal_Motor_Yaw.Kd_s = 100;
-  PID_Gimbal_Motor_Yaw.Kp_a = 0.3;
-  PID_Gimbal_Motor_Yaw.Ki_a = 0;
+  PID_Gimbal_Motor_Yaw.Kp_a = 0.65;
+  PID_Gimbal_Motor_Yaw.Ki_a = 0.005;
   PID_Gimbal_Motor_Yaw.Kd_a = 0;
 
   PID_Gimbal_Motor_Yaw.ErrorInt_High_s = 30;
   PID_Gimbal_Motor_Yaw.ErrorInt_Low_s  = -30;
-  PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 0;
-  PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = 0;
+  PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 30;
+  PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = -30;
 
   PID_Gimbal_Motor_Yaw.Speed_Target_High = 20;
   PID_Gimbal_Motor_Yaw.Speed_Target_Low = -20;
@@ -160,17 +163,17 @@ void Gimbal_Yaw_Motor_PID_Init(void)
  */
 void Gimbal_Pitch_Motor_PID_Init(void)
 {
-  PID_Gimbal_Motor_Pitch.Kp_s = 820;
-  PID_Gimbal_Motor_Pitch.Ki_s = 34;
-  PID_Gimbal_Motor_Pitch.Kd_s = 10;
-  PID_Gimbal_Motor_Pitch.Kp_a = 0.22;
-  PID_Gimbal_Motor_Pitch.Ki_a = 0;
-  PID_Gimbal_Motor_Pitch.Kd_a = 0;
+  PID_Gimbal_Motor_Pitch.Kp_s = 850;
+  PID_Gimbal_Motor_Pitch.Ki_s = 20;
+  PID_Gimbal_Motor_Pitch.Kd_s = 7;
+  PID_Gimbal_Motor_Pitch.Kp_a = 0.58;
+  PID_Gimbal_Motor_Pitch.Ki_a = 0.036;
+  PID_Gimbal_Motor_Pitch.Kd_a = 0.1;
 
   PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 80;
   PID_Gimbal_Motor_Pitch.ErrorInt_Low_s  = -80;
-  PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 0;
-  PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = -0;
+  PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 20;
+  PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = -42;
 
   PID_Gimbal_Motor_Pitch.Speed_Target_High = 10;
   PID_Gimbal_Motor_Pitch.Speed_Target_Low = -10;
@@ -221,8 +224,8 @@ typedef struct
  */
 typedef union
 {
-    Struct_Camera_USB_Frame_t Data;
-    uint8_t Raw[sizeof(Struct_Camera_USB_Frame_t)];
+  Struct_Camera_USB_Frame_t Data;
+  uint8_t Raw[sizeof(Struct_Camera_USB_Frame_t)];
 } Union_Camera_USB_Frame;
 
 
@@ -234,7 +237,7 @@ void Camera_USB_CallBack(uint8_t *Buffer, uint16_t Length)
 
   //回显
   USB_Transmit_Data(Buffer, Length);
-  STM32_Printf("USB收到数据长度：%d\r\n",Length);
+  //STM32_Printf("USB收到数据长度：%d\r\n",Length);
   //USB_Printf("USB收到数据长度：%d\r\n",Length);
   //Serial_Send_Data(Buffer,Length);
 
@@ -262,6 +265,7 @@ void Camera_USB_CallBack(uint8_t *Buffer, uint16_t Length)
 
   //-------------解算数据--------------
   // 模式处理
+  temp = Receive_Frame.Data.Mode;
   if (Receive_Frame.Data.Mode == 1)
   {
     gimtal_states = gimbal_states_aim_mode;
@@ -278,7 +282,7 @@ void Camera_USB_CallBack(uint8_t *Buffer, uint16_t Length)
     Gimbal.Set_Target_Front_Continuous_Pitch(Delta_Pitch);
     Gimbal.Set_Target_Front_Continuous_Yaw(Delta_Yaw);
 
-    Serial_Printf("Delta_Pitch:%f Delta_Yaw:%f\r\n", Delta_Pitch, Delta_Yaw);
+    USB_Printf("Delta_Pitch:%f Delta_Yaw:%f\r\n", Delta_Pitch, Delta_Yaw);
   }
   else
   {
@@ -421,7 +425,8 @@ extern "C" void main_Task_1ms(void *argument)
 
         //获取到的信息存入PID目标（可能需要先做数据处理！！！！！！！！！）
         PID_Gimbal_Motor_Pitch.Set_Angle_Target(PID_Gimbal_Motor_Pitch.Limit(Gimbal.Get_Target_Front_Continuous_Pitch(), -40.0f, 40.0f));
-        PID_Gimbal_Motor_Yaw.Set_Angle_Target(Gimbal.Get_Target_Front_Continuous_Yaw());
+        //PID_Gimbal_Motor_Yaw.Set_Angle_Target(Gimbal.Get_Target_Front_Continuous_Yaw());
+        PID_Gimbal_Motor_Yaw.Set_Angle_Target(PID_Gimbal_Motor_Yaw.Limit(Gimbal.Get_Target_Front_Continuous_Yaw(), -180, 180));
       }
       else if(gimtal_states == gimbal_states_sentry_mode)//哨兵模式 自己乱转
       {
