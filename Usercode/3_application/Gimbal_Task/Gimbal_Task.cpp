@@ -33,7 +33,7 @@ typedef struct
 
 }Temp_Data;
 
-Temp_Data Temp_Control_Data ={1.5,5000,40,6000};
+Temp_Data Temp_Control_Data ={0.5,5000,38,6000};
 
 
 /*  Task层全局变量 ------------------------------------------------------------*/
@@ -155,20 +155,20 @@ void Gimbal_Yaw_Motor_PID_Init(void)
  */
 void Gimbal_Pitch_Motor_PID_Init(void)
 {
-  PID_Gimbal_Motor_Pitch.Kp_s = 1550;
-  PID_Gimbal_Motor_Pitch.Ki_s = 105;
-  PID_Gimbal_Motor_Pitch.Kd_s = 100;
-  PID_Gimbal_Motor_Pitch.Kp_a = 0;
+  PID_Gimbal_Motor_Pitch.Kp_s = 820;
+  PID_Gimbal_Motor_Pitch.Ki_s = 34;
+  PID_Gimbal_Motor_Pitch.Kd_s = 10;
+  PID_Gimbal_Motor_Pitch.Kp_a = 0.2;
   PID_Gimbal_Motor_Pitch.Ki_a = 0;
   PID_Gimbal_Motor_Pitch.Kd_a = 0;
 
-  PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 30;
-  PID_Gimbal_Motor_Pitch.ErrorInt_Low_s  = -30;
-  PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 0;
-  PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = 0;
+  PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 80;
+  PID_Gimbal_Motor_Pitch.ErrorInt_Low_s  = -80;
+  PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 20;
+  PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = -20;
 
-  PID_Gimbal_Motor_Pitch.Speed_Target_High = 20;
-  PID_Gimbal_Motor_Pitch.Speed_Target_Low = -20;
+  PID_Gimbal_Motor_Pitch.Speed_Target_High = 5;
+  PID_Gimbal_Motor_Pitch.Speed_Target_Low = -5;
 
   PID_Gimbal_Motor_Pitch.Out_High = 4000;
   PID_Gimbal_Motor_Pitch.Out_Low  = -4000;
@@ -462,6 +462,28 @@ float Speed_Target_Sentry(void)
 }
 
 /**
+ * @brief 哨兵模式速度目标变换设置函数Pitch
+ * 
+ * @return float 速度目标值
+ */
+float Speed_Target_Sentry_Pitch(void)
+{
+  static float temp = 0.5f;   // 初始先给一个方向，也可以写成 Temp_Control_Data.speed_amplitude
+  float current_angle = PID_Gimbal_Motor_Pitch.Angle_States.Current;
+
+  if (current_angle < -38.0f)
+  {
+    temp = Temp_Control_Data.speed_amplitude;
+  }
+  else if (current_angle > 38.0f)
+  {
+    temp = -Temp_Control_Data.speed_amplitude;
+  }
+
+  return temp;
+}
+
+/**
  * @brief 哨兵模式角度目标变换设置函数
  * 
  * @return float 角度目标值
@@ -484,6 +506,28 @@ float Angle_Target_Sentry(void)
 }
 
 /**
+ * @brief 哨兵模式角度目标变换设置函数
+ * 
+ * @return float 角度目标值
+ */
+float Angle_Target_Sentry_Pitch(void)
+{
+  static float temp = 38; 
+  float current_angle = PID_Gimbal_Motor_Pitch.Angle_States.Current;
+
+  if (current_angle < -38.0f)
+  {
+    temp = Temp_Control_Data.angle_amplitude;
+  }
+  else if (current_angle > 38.0f)
+  {
+    temp = -Temp_Control_Data.angle_amplitude;
+  }
+
+  return temp;
+}
+
+/**
  * @brief 哨兵模式目标变换设置函数
  * 
  */
@@ -492,7 +536,7 @@ void Set_Yaw_and_Pitch_Motor_Target_Sentry(void)
   PID_Gimbal_Motor_Yaw.Set_Angle_Target(Angle_Target_Sentry());
   //PID_Gimbal_Motor_Yaw.Set_Speed_Target(Speed_Target_Sentry());
 
-  PID_Gimbal_Motor_Pitch.Set_Angle_Target(Angle_Target_Sentry());
+  PID_Gimbal_Motor_Pitch.Set_Angle_Target(Angle_Target_Sentry_Pitch());
   //PID_Gimbal_Motor_Pitch.Set_Speed_Target(Speed_Target_Sentry());
 }
 
@@ -504,7 +548,7 @@ void Set_Yaw_and_Pitch_Motor_Speed_Target_Sentry(void)
 {
   PID_Gimbal_Motor_Yaw.Set_Speed_Target(Speed_Target_Sentry());
 
-  //PID_Gimbal_Motor_Pitch.Set_Speed_Target(Speed_Target_Sentry());
+  PID_Gimbal_Motor_Pitch.Set_Speed_Target(Speed_Target_Sentry_Pitch());
 }
 
 /* PID 当前参数传入相关 ------------------------------------------------------*/

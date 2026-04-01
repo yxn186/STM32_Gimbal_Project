@@ -151,6 +151,10 @@ void Camera_USB_Offline_Check(void);
 
 void Gimbal_Set_Front_Angle(float yaw,float roll,float pitch);
 
+float Speed_Target_Sentry_Pitch(void);
+
+float Angle_Target_Sentry_Pitch(void);
+
 #ifdef __cplusplus
 }
 #endif
