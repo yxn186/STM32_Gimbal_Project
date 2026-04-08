@@ -105,6 +105,7 @@ void Class_DJI_Motor_Group::CAN_RxCallback_Entry(CAN_Rx_Buffer_t *RxBuffer)
         return;
     }
 
+
     Group_FIFO0->CAN_RxCallback(RxBuffer);
 }
 

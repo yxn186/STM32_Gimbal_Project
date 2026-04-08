@@ -147,7 +147,7 @@ void Gimbal_Push_PID_Out_To_Motor_Control(void);
  * @brief 相机USB离线检测
  * 
  */
-void Camera_USB_Offline_Check(void);
+void Gimbal_Vision_Mode_Judge_1ms(void);
 
 void Gimbal_Set_Front_Angle(float yaw,float roll,float pitch);
 

@@ -23,6 +23,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Gimbal_Task/Gimbal_Task.cpp
     ${CMAKE_CURRENT_LIST_DIR}/chassis/chassis.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Gimbal/Gimbal.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Vision/Vision.cpp
 )
 
 # ============================================================

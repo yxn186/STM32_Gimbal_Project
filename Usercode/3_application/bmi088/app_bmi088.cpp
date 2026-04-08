@@ -23,7 +23,7 @@
 #include "task.h"
 #include "MyRTOS.h"
 
-#define biascalibration_target_samples 1000 //零飘校准目标次数
+#define biascalibration_target_samples 300 //零飘校准目标次数
 
 /**
  * @brief FreeRTOS相关
