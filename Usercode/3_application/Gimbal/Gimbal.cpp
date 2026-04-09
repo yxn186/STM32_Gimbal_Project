@@ -11,7 +11,12 @@
 #include "MyMath.h"
 #include <math.h>
 
-
+/**
+ * @brief 将角度限制在[-180, 180]范围内
+ * 
+ * @param Angle 输入角度
+ * @return float 限制后的角度
+ */
 static float Gimbal_Angle_Wrap_To_180(float Angle)
 {
     while(Angle > 180.0f)  Angle -= 360.0f;
@@ -19,6 +24,12 @@ static float Gimbal_Angle_Wrap_To_180(float Angle)
     return Angle;
 }
 
+/**
+ * @brief 复制3x3矩阵
+ * 
+ * @param Src 输入矩阵，大小为3x3
+ * @param Dst 输出矩阵，大小为3x3，存储复制结果
+ */
 static void Gimbal_Matrix3x3_Copy(const float Src[3][3], float Dst[3][3])
 {
     for(uint8_t i = 0; i < 3; i++)
@@ -30,6 +41,12 @@ static void Gimbal_Matrix3x3_Copy(const float Src[3][3], float Dst[3][3])
     }
 }
 
+/**
+ * @brief 计算3x3矩阵的转置
+ * 
+ * @param Src 输入矩阵，大小为3x3
+ * @param Dst 输出矩阵，大小为3x3，存储转置结果
+ */
 static void Gimbal_Matrix3x3_Transpose(const float Src[3][3], float Dst[3][3])
 {
     for(uint8_t i = 0; i < 3; i++)
@@ -41,6 +58,13 @@ static void Gimbal_Matrix3x3_Transpose(const float Src[3][3], float Dst[3][3])
     }
 }
 
+/**
+ * @brief 计算两个3x3矩阵的乘积 C = A * B
+ * 
+ * @param A 输入矩阵A，大小为3x3
+ * @param B 输入矩阵B，大小为3x3
+ * @param C 输出矩阵C，大小为3x3，存储结果A*B
+ */
 static void Gimbal_Matrix3x3_Multiply(const float A[3][3], const float B[3][3], float C[3][3])
 {
     for(uint8_t i = 0; i < 3; i++)
@@ -54,18 +78,37 @@ static void Gimbal_Matrix3x3_Multiply(const float A[3][3], const float B[3][3], 
     }
 }
 
+/**
+ * @brief 计算三维向量的点积
+ * 
+ * @param ax 向量A的x分量
+ * @param ay 向量A的y分量
+ * @param az 向量A的z分量
+ * @param bx 向量B的x分量
+ * @param by 向量B的y分量
+ * @param bz 向量B的z分量
+ * @return float 向量A和向量B的点积
+ */
 static float Gimbal_Vector3_Dot(float ax, float ay, float az, float bx, float by, float bz)
 {
     return ax * bx + ay * by + az * bz;
 }
 
+/**
+ * @brief 计算三维向量的模长
+ * 
+ * @param x 向量x分量
+ * @param y 向量y分量
+ * @param z 向量z分量
+ * @return float 向量的模长
+ */
 static float Gimbal_Vector3_Norm(float x, float y, float z)
 {
     return sqrtf(x * x + y * y + z * z);
 }
 
 /**
- * @brief IMU原始坐标系 -> IMU虚拟坐标系（前x 左y 上z）
+ * @brief 旋转矩阵:IMU原始坐标系 -> IMU虚拟坐标系（前x 左y 上z）
  * 
  * 当前固定关系：
  * Virtual_X = Raw_-Y
@@ -83,7 +126,7 @@ static const float R_ImuVirtual_From_ImuRaw[3][3] =
 };
 
 /**
- * @brief IMU虚拟坐标系 -> IMU原始坐标系
+ * @brief 旋转矩阵:IMU虚拟坐标系 -> IMU原始坐标系
  * 
  * 含义：
  * v_imuRaw = R_ImuRaw_From_ImuVirtual * v_imuVirtual
@@ -94,7 +137,6 @@ static const float R_ImuRaw_From_ImuVirtual[3][3] =
     {-1.0f,  0.0f,  0.0f },
     { 0.0f,  0.0f,  1.0f }
 };
-
 
 
 /**
@@ -314,13 +356,13 @@ void Class_Gimbal::Update_Angle_State(Struct_Gimbal_Angle_State_t *Angle_State, 
 }
 
 /**
- * @brief 四元数转旋转矩阵
+ * @brief 四元数转旋转矩阵 Quaternion RotationMatrix
  *
  * @param Q0
  * @param Q1
  * @param Q2
  * @param Q3
- * @param R
+ * @param R 输出旋转矩阵，大小为3x3
  */
 void Class_Gimbal::Quaternion_To_RotationMatrix(float Q0, float Q1, float Q2, float Q3, float R[3][3])
 {
@@ -353,12 +395,12 @@ void Class_Gimbal::Quaternion_To_RotationMatrix(float Q0, float Q1, float Q2, fl
 }
 
 /**
- * @brief 旋转矩阵解算Yaw / Pitch / Roll
+ * @brief 旋转矩阵(RotationMatrix)解算Yaw / Pitch / Roll
  *
- * @param R
- * @param Yaw
- * @param Pitch
- * @param Roll
+ * @param R 输入旋转矩阵，大小为3x3
+ * @param Yaw 输出偏航角，单位为度
+ * @param Pitch 输出俯仰角，单位为度
+ * @param Roll 输出滚转角，单位为度
  */
 void Class_Gimbal::RotationMatrix_To_YawPitchRoll(const float R[3][3], float *Yaw, float *Pitch, float *Roll)
 {
@@ -466,8 +508,8 @@ void Class_Gimbal::Set_R_World_From_ImuVirtual_Measurement(void)
 }
 
 /**
- * @brief 计算电机模型参考角度
- *
+ * @brief 计算电机模型参考角度 
+ *@details Yaw相对启动角度，Pitch固定水平角度，并自动处理Yaw连续角计算
  */
 void Class_Gimbal::Set_Model_Relative_BaseStart_Angle(void)
 {
@@ -485,7 +527,7 @@ void Class_Gimbal::Set_Model_Relative_BaseStart_Angle(void)
 }
 
 /**
- * @brief 计算IMU虚拟坐标系相对于启动时基座的模型参考矩阵
+ * @brief 计算IMU虚拟坐标系相对于启动时基座的模型参考旋转矩阵
  *
  */
 void Class_Gimbal::Set_R_BaseStart_From_ImuVirtual_Model(void)
@@ -529,7 +571,7 @@ void Class_Gimbal::Set_R_BaseStart_From_ImuVirtual_Model(void)
 }
 
 /**
- * @brief 计算IMU原始坐标系相对于启动时基座的模型参考矩阵
+ * @brief 计算IMU原始坐标系相对于启动时基座的模型参考旋转矩阵
  *
  */
 void Class_Gimbal::Set_R_BaseStart_From_ImuRaw_Model(void)
@@ -564,7 +606,7 @@ void Class_Gimbal::Set_Imu_Relative_BaseCurrent_Model_Angle(void)
 }
 
 /**
- * @brief 计算IMU虚拟坐标系相对于当前时刻基座的模型矩阵
+ * @brief 计算IMU虚拟坐标系相对于当前时刻基座的模型旋转矩阵
  * 
  */
 void Class_Gimbal::Set_R_BaseCurrent_From_ImuVirtual_Model(void)
@@ -573,7 +615,7 @@ void Class_Gimbal::Set_R_BaseCurrent_From_ImuVirtual_Model(void)
 }
 
 /**
- * @brief 计算IMU原始坐标系相对于当前时刻基座的模型矩阵
+ * @brief 计算IMU原始坐标系相对于当前时刻基座的模型旋转矩阵
  * 
  */
 void Class_Gimbal::Set_R_BaseCurrent_From_ImuRaw_Model(void)
@@ -584,11 +626,12 @@ void Class_Gimbal::Set_R_BaseCurrent_From_ImuRaw_Model(void)
 /**
  * @brief 尝试建立“启动时基座在世界系中的矩阵”
  *
- * @param Now_Time
- * @param Delay_Time
+ * @param Now_Time 当前时间，单位为毫秒
+ * @param Delay_Time 延迟时间，单位为毫秒
  */
 void Class_Gimbal::Try_Init_BaseStart_World(uint32_t Now_Time, uint32_t Delay_Time)
 {
+    //等待初始化完成，避免启动时IMU数据异常导致基座初始化错误
     if(BaseStart_World_Initialized != 0U)
     {
         return;
@@ -621,7 +664,7 @@ void Class_Gimbal::Try_Init_BaseStart_World(uint32_t Now_Time, uint32_t Delay_Ti
 }
 
 /**
- * @brief 计算IMU虚拟坐标系相对于启动时基座的真实矩阵
+ * @brief 计算IMU虚拟坐标系相对于启动时基座的真实旋转矩阵
  *
  */
 void Class_Gimbal::Set_R_BaseStart_From_ImuVirtual_True(void)
@@ -635,7 +678,7 @@ void Class_Gimbal::Set_R_BaseStart_From_ImuVirtual_True(void)
 }
 
 /**
- * @brief 计算IMU原始坐标系相对于启动时基座的真实矩阵
+ * @brief 计算IMU原始坐标系相对于启动时基座的真实旋转矩阵
  *
  */
 void Class_Gimbal::Set_R_BaseStart_From_ImuRaw_True(void)
@@ -646,7 +689,7 @@ void Class_Gimbal::Set_R_BaseStart_From_ImuRaw_True(void)
 }
 
 /**
- * @brief 从“真实相对矩阵”中解算IMU相对于启动时基座的角度
+ * @brief 从“真实相对旋转矩阵”中解算IMU相对于启动时基座的角度
  *
  */
 void Class_Gimbal::Set_Imu_Relative_BaseStart_Angle(void)
@@ -662,14 +705,14 @@ void Class_Gimbal::Set_Imu_Relative_BaseStart_Angle(void)
 /**
  * @brief 总更新函数：同时更新IMU实测链和电机模型链
  *
- * @param Q0
- * @param Q1
- * @param Q2
- * @param Q3
- * @param Yaw_Motor_Raw_Angle
- * @param Pitch_Motor_Raw_Angle
- * @param Now_Time
- * @param Delay_Time
+ * @param Q0 四元数分量Q0
+ * @param Q1 四元数分量Q1
+ * @param Q2 四元数分量Q2
+ * @param Q3 四元数分量Q3
+ * @param Yaw_Motor_Raw_Angle 偏航电机原始角度
+ * @param Pitch_Motor_Raw_Angle 俯仰电机原始角度
+ * @param Now_Time 当前时间，单位为毫秒
+ * @param Delay_Time 延迟时间，单位为毫秒
  */
 void Class_Gimbal::Update_Imu_Pose_Relative_BaseStart(float Q0,
                                                       float Q1,
