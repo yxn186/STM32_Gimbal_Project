@@ -13,7 +13,6 @@
 #include "Serial.h"
 #include "gimbal_task.h"
 #include "usart.h"
-#include <cstdint>
 #include <stdbool.h>
 #include "usbd_cdc_if.h"
 #include "bsp_usb.h"
@@ -26,8 +25,9 @@
 #include "MyMath.h"
 #include <math.h>
 #include "Gimbal.h"
-#include <stdint.h>
 #include "FeedForward.h"
+#include "LowPassFilter.h"
+
 
 float temp1,temp2,temp3;
 
@@ -59,6 +59,8 @@ bool is_gimbal_target_mode = true;
 
 bool is_feedforward_mode = false;
 
+bool is_lpf_mode = false;
+
 //任务时间
 uint32_t Task_Time;
 /*  Task层数据    ------------------------------------------------------------*/
@@ -82,18 +84,6 @@ uint32_t target_set_time;
  */
 bool need_change_mode = false;
 
-/**
- * @brief 云台实际角度
- * 
- */
-float Yaw,Pitch,Roll;
-
-/**
- * @brief 云台Imu反馈实际角度
- * 
- */
-float Imu_Yaw,Imu_Pitch,Imu_Roll;
-
 
 /**
  * @brief 云台自瞄目标参数
@@ -102,7 +92,20 @@ float Imu_Yaw,Imu_Pitch,Imu_Roll;
 float Aim_Pitch;
 float Aim_Yaw;
 
+/**
+ * @brief 云台低通滤波器输出
+ * 
+ */
+float Gimbal_Yaw_LPF_Out;
+float Gimbal_Pitch_LPF_Out;
 /*  Task层类    --------------------------------------------------------------*/
+
+/**
+ * @brief 云台低通滤波器
+ * 
+ */
+Class_LowPassFilter Gimbal_Yaw_LPF;
+Class_LowPassFilter Gimbal_Pitch_LPF;
 
 /**
  * @brief 云台前馈类
@@ -226,7 +229,6 @@ extern "C" void StartInitTask(void *argument)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartInitTask */
   gimbal_task_init();
-  Gimbal.Reset_Front_Angle_State();
   /* Infinite loop */
   for(;;)
   {
@@ -250,7 +252,7 @@ extern "C" void Data_ptintf_task(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    Vision .USB_Transmit_Angle(Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw(),Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch());
+    Vision.USB_Transmit_Angle(Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw(),Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch());
     //app_bmi088_20ms_task();
     osDelay(1);
   }
@@ -296,17 +298,14 @@ extern "C" void main_Task_1ms(void *argument)
     //视觉模式判断
     Gimbal_Vision_Mode_Judge_1ms();
 
-    float y,r,p;
-    app_bmi088_1ms_task_get_now_pitch_yaw_roll(&y,&p,&r);
-    Gimbal_Set_Front_Angle(y,r,p);
-    Gimbal.Update_Front_Angle(y,p);
-
     if(is_gimbal_mode)
     {
       //模式切换判断
       if(need_change_mode)
       {
         gimbal_pid_reset();
+        Gimbal_Yaw_LPF.Reset();
+        Gimbal_Pitch_LPF.Reset();
         need_change_mode = false;
       }
       //判断模式 设置target 弄成函数？
@@ -318,7 +317,7 @@ extern "C" void main_Task_1ms(void *argument)
         //获取到的信息存入PID目标（可能需要先做数据处理！！！！！！！！！）
         PID_Gimbal_Motor_Pitch.Set_Angle_Target(PID_Gimbal_Motor_Pitch.Limit(Pitch_Target, -40.0f, 40.0f));
         PID_Gimbal_Motor_Yaw.Set_Angle_Target(PID_Gimbal_Motor_Yaw.Limit(Yaw_Target, -180.0f, 180.0f));
-        //PID_Gimbal_Motor_Yaw.Set_Angle_Target(PID_Gimbal_Motor_Yaw.Limit(Gimbal.Get_Target_Front_Continuous_Yaw(), -180, 180));
+        
       }
       else if(gimtal_states == gimbal_states_sentry_mode)//哨兵模式 自己乱转
       {
@@ -347,14 +346,34 @@ extern "C" void main_Task_1ms(void *argument)
 
       Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch(),
                                                   Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw());                                     
-      //单环PID 先跑通
-      //PID_Gimbal_Motor_Yaw.Control_Speed_To_Out();
-      //PID_Gimbal_Motor_Pitch.Control_Speed_To_Out();
+      
 
-      //双环PID控制 跑通后设置
-      PID_Gimbal_Motor_Yaw.Control_Cascade();
-      PID_Gimbal_Motor_Pitch.Control_Cascade();
+      //PID计算
+      if(is_lpf_mode)
+      {
+        PID_Gimbal_Motor_Yaw.Control_Angle_To_Speed();
+        PID_Gimbal_Motor_Pitch.Control_Angle_To_Speed();
+        
+        Gimbal_Yaw_LPF_Out = Gimbal_Yaw_LPF.Update(PID_Gimbal_Motor_Yaw.Get_Speed_Target());
+        PID_Gimbal_Motor_Yaw.Set_Speed_Target(Gimbal_Yaw_LPF_Out);
 
+        Gimbal_Pitch_LPF_Out = Gimbal_Pitch_LPF.Update(PID_Gimbal_Motor_Pitch.Get_Speed_Target());
+        PID_Gimbal_Motor_Pitch.Set_Speed_Target(Gimbal_Pitch_LPF_Out);
+
+        PID_Gimbal_Motor_Yaw.Control_Speed_To_Out();
+        PID_Gimbal_Motor_Pitch.Control_Speed_To_Out();
+      }
+      else
+      {
+        //单环PID 先跑通
+        //PID_Gimbal_Motor_Yaw.Control_Speed_To_Out();
+        //PID_Gimbal_Motor_Pitch.Control_Speed_To_Out();
+
+        //双环PID控制 跑通后设置
+        PID_Gimbal_Motor_Yaw.Control_Cascade();
+        PID_Gimbal_Motor_Pitch.Control_Cascade();
+      }
+      
       //将PID输出值推送至电机输出值
       Gimbal_Push_PID_Out_To_Motor_Control();
 
@@ -395,8 +414,13 @@ void gimbal_task_init(void)
     //云台目标初始化
     gimbal_target_init();
 
+    //云台IMU角度初始化
     Gimbal.Reset_Imu_Relative_BaseStart_State();
     Gimbal.Set_Pitch_Mechanical_Zero_Angle(64.0f);
+
+    //初始化低通滤波器
+    Gimbal_Yaw_LPF.Configure(30.0f, 0.001f);
+    Gimbal_Pitch_LPF.Configure(30.0f, 0.001f);
   }
 }
 
@@ -418,12 +442,6 @@ void gimbal_pid_reset(void)
 {
   PID_Gimbal_Motor_Yaw.Reset();
   PID_Gimbal_Motor_Pitch.Reset();
-}
-
-void Gimbal_Set_Front_Angle(float yaw,float roll,float pitch)
-{
-  Gimbal.Set_Front_Yaw(yaw);
-  Gimbal.Set_Front_Pitch(pitch);
 }
 
 /* 哨兵模式 Target设置相关 ---------------------------------------------------*/
