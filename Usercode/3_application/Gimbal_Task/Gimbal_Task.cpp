@@ -44,7 +44,7 @@ typedef struct
 
 }Temp_Data;
 
-Temp_Data Temp_Control_Data ={0.5,3000,38,2000,0.4,40,0.2,38};
+Temp_Data Temp_Control_Data ={0.5,3000,38,2000,0.6,50,0.3,38};
 
 
 /*  Task层全局变量 ------------------------------------------------------------*/
@@ -56,6 +56,8 @@ bool Global_Init_Finished = false;
 bool is_gimbal_mode = true;
 
 bool is_gimbal_target_mode = true;
+
+bool is_feedforward_mode = false;
 
 //任务时间
 uint32_t Task_Time;
@@ -138,23 +140,46 @@ Class_PID PID_Gimbal_Motor_Pitch;
  */
 void Gimbal_Yaw_Motor_PID_Init(void)
 {
-  PID_Gimbal_Motor_Yaw.Kp_s = 1500;
-  PID_Gimbal_Motor_Yaw.Ki_s = 60;
-  PID_Gimbal_Motor_Yaw.Kd_s = 40;
-  PID_Gimbal_Motor_Yaw.Kp_a = 1;
-  PID_Gimbal_Motor_Yaw.Ki_a = 0.005;
-  PID_Gimbal_Motor_Yaw.Kd_a = 0;
+  if(is_feedforward_mode)
+  {
+    PID_Gimbal_Motor_Yaw.Kp_s = 1150;
+    PID_Gimbal_Motor_Yaw.Ki_s = 33;
+    PID_Gimbal_Motor_Yaw.Kd_s = 20;
+    PID_Gimbal_Motor_Yaw.Kp_a = 1.1;
+    PID_Gimbal_Motor_Yaw.Ki_a = 0.02;
+    PID_Gimbal_Motor_Yaw.Kd_a = 0.1;
 
-  PID_Gimbal_Motor_Yaw.ErrorInt_High_s = 45;
-  PID_Gimbal_Motor_Yaw.ErrorInt_Low_s  = -45;
-  PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 30;
-  PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = -30;
+    PID_Gimbal_Motor_Yaw.ErrorInt_High_s = 70;
+    PID_Gimbal_Motor_Yaw.ErrorInt_Low_s  = -70;
+    PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 35;
+    PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = -35;
 
-  PID_Gimbal_Motor_Yaw.Speed_Target_High = 20;
-  PID_Gimbal_Motor_Yaw.Speed_Target_Low = -20;
+    PID_Gimbal_Motor_Yaw.Speed_Target_High = 20;
+    PID_Gimbal_Motor_Yaw.Speed_Target_Low = -20;
 
-  PID_Gimbal_Motor_Yaw.Out_High = 4000;
-  PID_Gimbal_Motor_Yaw.Out_Low  = -4000;
+    PID_Gimbal_Motor_Yaw.Out_High = 6000;
+    PID_Gimbal_Motor_Yaw.Out_Low  = -6000;
+  }
+  else
+  {
+    PID_Gimbal_Motor_Yaw.Kp_s = 1500;
+    PID_Gimbal_Motor_Yaw.Ki_s = 60;
+    PID_Gimbal_Motor_Yaw.Kd_s = 40;
+    PID_Gimbal_Motor_Yaw.Kp_a = 0.65;
+    PID_Gimbal_Motor_Yaw.Ki_a = 0.005;
+    PID_Gimbal_Motor_Yaw.Kd_a = 0;
+
+    PID_Gimbal_Motor_Yaw.ErrorInt_High_s = 45;
+    PID_Gimbal_Motor_Yaw.ErrorInt_Low_s  = -45;
+    PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 30;
+    PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = -30;
+
+    PID_Gimbal_Motor_Yaw.Speed_Target_High = 20;
+    PID_Gimbal_Motor_Yaw.Speed_Target_Low = -20;
+
+    PID_Gimbal_Motor_Yaw.Out_High = 6000;
+    PID_Gimbal_Motor_Yaw.Out_Low  = -6000;
+  }
 }
 
 /**
@@ -163,12 +188,12 @@ void Gimbal_Yaw_Motor_PID_Init(void)
  */
 void Gimbal_Pitch_Motor_PID_Init(void)
 {
-  PID_Gimbal_Motor_Pitch.Kp_s = 850;
-  PID_Gimbal_Motor_Pitch.Ki_s = 20;
-  PID_Gimbal_Motor_Pitch.Kd_s = 7;
-  PID_Gimbal_Motor_Pitch.Kp_a = 0.58;
-  PID_Gimbal_Motor_Pitch.Ki_a = 0.036;
-  PID_Gimbal_Motor_Pitch.Kd_a = 0.1;
+  PID_Gimbal_Motor_Pitch.Kp_s = 800;
+  PID_Gimbal_Motor_Pitch.Ki_s = 50;
+  PID_Gimbal_Motor_Pitch.Kd_s = 10;
+  PID_Gimbal_Motor_Pitch.Kp_a = 0.455;
+  PID_Gimbal_Motor_Pitch.Ki_a = 0.009;
+  PID_Gimbal_Motor_Pitch.Kd_a = 0;
 
   PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 80;
   PID_Gimbal_Motor_Pitch.ErrorInt_Low_s  = -80;
@@ -178,8 +203,8 @@ void Gimbal_Pitch_Motor_PID_Init(void)
   PID_Gimbal_Motor_Pitch.Speed_Target_High = 10;
   PID_Gimbal_Motor_Pitch.Speed_Target_Low = -10;
 
-  PID_Gimbal_Motor_Pitch.Out_High = 4000;
-  PID_Gimbal_Motor_Pitch.Out_Low  = -4000;
+  PID_Gimbal_Motor_Pitch.Out_High = 6000;
+  PID_Gimbal_Motor_Pitch.Out_Low  = -6000;
 }
 
 /**
@@ -227,7 +252,7 @@ extern "C" void Data_ptintf_task(void *argument)
   {
     Vision .USB_Transmit_Angle(Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw(),Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch());
     //app_bmi088_20ms_task();
-    osDelay(10);
+    osDelay(1);
   }
   /* USER CODE END Data_ptintf_task */
 }
@@ -612,9 +637,23 @@ void Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(float Pitch,float Yaw)
  */
 void Gimbal_Push_PID_Out_To_Motor_Control(void)
 {
-  float yaw_feedforward = Gimbal_FeedForward.Friction_Feedforward_Simple_Plus(PID_Gimbal_Motor_Yaw.Speed_Target, 0, -0, 0.4);
-
-  float yaw_out = PID_Gimbal_Motor_Yaw.Get_Out() + yaw_feedforward;
+  float yaw_out;
+  if(is_feedforward_mode)
+  {
+    float yaw_feedforward = Gimbal_FeedForward.Friction_Feedforward_Advanced(
+    PID_Gimbal_Motor_Yaw.Get_Speed_Target(),
+    0.0f,
+    1290.0f,
+    -212.0f,
+    0.5f,
+    3.0f
+  );
+    yaw_out = PID_Gimbal_Motor_Yaw.Get_Out() + yaw_feedforward;
+  }
+  else
+  {
+    yaw_out = PID_Gimbal_Motor_Yaw.Get_Out();
+  }
   float pitch_out = PID_Gimbal_Motor_Pitch.Get_Out();
   
   DJI_Motor_Pitch.Set_Out(pitch_out);

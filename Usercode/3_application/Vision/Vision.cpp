@@ -42,8 +42,8 @@ void Vision_USB_CallBack(uint8_t *Buffer, uint16_t Length)
     if (Vision.Receive_Union.Data.Mode == 1)
     {
         Vision.Detected_State = true;
-        Vision.Delta_Yaw = Vision.Receive_Union.Data.Delta_Yaw_10 * 0.1f;
-        Vision.Delta_Pitch = Vision.Receive_Union.Data.Delta_Pitch_10 * 0.1f;
+        Vision.Delta_Yaw = Vision.Receive_Union.Data.Delta_Yaw;
+        Vision.Delta_Pitch = Vision.Receive_Union.Data.Delta_Pitch;
     }
     else
     {
@@ -69,8 +69,8 @@ void Class_Vision::USB_Transmit_Angle(float Yaw,float Pitch)
 {
     Transmit_Union.Data.Frame_Header = 0xAA;
     Transmit_Union.Data.Mode = 1;
-    Transmit_Union.Data.Yaw_10 = (int16_t)(Yaw * 10.0f);
-    Transmit_Union.Data.Pitch_10 = (int16_t)(Pitch * 10.0f);
+    Transmit_Union.Data.Yaw = Yaw;
+    Transmit_Union.Data.Pitch = Pitch;
     Transmit_Union.Data.Frame_Tail = 0x55;
 
     USB_Transmit_Data(Transmit_Union.Raw, sizeof(Transmit_Union.Raw));

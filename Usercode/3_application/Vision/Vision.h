@@ -27,8 +27,8 @@ class Class_Vision
     {
         uint8_t Frame_Header;
         uint8_t Mode;
-        int16_t Delta_Yaw_10;
-        int16_t Delta_Pitch_10;
+        float Delta_Yaw;
+        float Delta_Pitch;
         uint8_t Frame_Tail;
     } USB_RX_Frame_t;
     #pragma pack(pop)
@@ -47,8 +47,8 @@ class Class_Vision
     {
         uint8_t Frame_Header;
         uint8_t Mode;
-        int16_t Yaw_10;
-        int16_t Pitch_10;
+        float Yaw;
+        float Pitch;
         uint8_t Frame_Tail;
     } USB_TX_Frame_t;
     #pragma pack(pop)
