@@ -152,6 +152,10 @@ void Class_Gimbal::Reset_Imu_Relative_BaseStart_State(void)
     Imu_Relative_BaseStart_Pitch_State = Struct_Gimbal_Angle_State_t();
     Imu_Relative_BaseStart_Roll_State = Struct_Gimbal_Angle_State_t();
 
+    Imu_Relative_World_Yaw_State = Struct_Gimbal_Angle_State_t();
+    Imu_Relative_World_Pitch_State = Struct_Gimbal_Angle_State_t();
+    Imu_Relative_World_Roll_State = Struct_Gimbal_Angle_State_t();
+
     Imu_Yaw = 0.0f;
     Imu_Pitch = 0.0f;
     Imu_Roll = 0.0f;
@@ -700,6 +704,41 @@ void Class_Gimbal::Set_Imu_Relative_BaseStart_Angle(void)
 
     RotationMatrix_To_YawPitchRoll(R_BaseStart_From_ImuVirtual_True, &Yaw, &Pitch, &Roll);
     Update_Imu_Angle(Yaw, Pitch, Roll);
+}
+
+/**
+ * @brief 从“世界系实测矩阵”中解算IMU相对于世界系的角度
+ *
+ */
+void Class_Gimbal::Set_Imu_Relative_World_Angle(void)
+{
+    float Yaw = 0.0f;
+    float Pitch = 0.0f;
+    float Roll = 0.0f;
+
+    RotationMatrix_To_YawPitchRoll(R_World_From_ImuVirtual_Measurement, &Yaw, &Pitch, &Roll);
+
+    Update_Angle_State(&Imu_Relative_World_Yaw_State, Yaw);
+    Update_Angle_State(&Imu_Relative_World_Pitch_State, Pitch);
+    Update_Angle_State(&Imu_Relative_World_Roll_State, Roll);
+}
+
+/**
+ * @brief 总更新函数：只更新IMU虚拟坐标系相对于世界系的姿态角
+ *
+ * @param Q0 四元数分量Q0
+ * @param Q1 四元数分量Q1
+ * @param Q2 四元数分量Q2
+ * @param Q3 四元数分量Q3
+ */
+void Class_Gimbal::Update_Imu_Pose_Relative_World(float Q0,
+                                                  float Q1,
+                                                  float Q2,
+                                                  float Q3)
+{
+    Set_R_World_From_ImuRaw_Measurement(Q0, Q1, Q2, Q3);
+    Set_R_World_From_ImuVirtual_Measurement();
+    Set_Imu_Relative_World_Angle();
 }
 
 /**

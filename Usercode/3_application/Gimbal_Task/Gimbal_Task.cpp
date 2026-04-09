@@ -252,7 +252,7 @@ extern "C" void Data_ptintf_task(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    Vision.USB_Transmit_Angle(Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw(),Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch());
+    Vision.USB_Transmit_Angle(Gimbal.Get_Imu_Relative_World_Continuous_Yaw(),Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
     //app_bmi088_20ms_task();
     osDelay(1);
   }
@@ -285,14 +285,19 @@ extern "C" void main_Task_1ms(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    Gimbal.Update_Imu_Pose_Relative_BaseStart(q0,
+    // Gimbal.Update_Imu_Pose_Relative_BaseStart(q0,
+    //                                       q1,
+    //                                       q2,
+    //                                       q3,
+    //                                       DJI_Motor_Yaw.Get_Angle(),
+    //                                       DJI_Motor_Pitch.Get_Angle(),
+    //                                       Task_Time,
+    //                                       100);
+
+    Gimbal.Update_Imu_Pose_Relative_World(q0,
                                           q1,
                                           q2,
-                                          q3,
-                                          DJI_Motor_Yaw.Get_Angle(),
-                                          DJI_Motor_Pitch.Get_Angle(),
-                                          Task_Time,
-                                          100);
+                                          q3);
 
 
     //视觉模式判断
@@ -311,8 +316,11 @@ extern "C" void main_Task_1ms(void *argument)
       //判断模式 设置target 弄成函数？
       if(gimtal_states == gimbal_states_aim_mode)//瞄准装甲板模式 接收视觉信息
       {
-        float Pitch_Target = Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch() + Vision.Get_Delta_Pitch();
-        float Yaw_Target = Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw() + Vision.Get_Delta_Yaw();
+        float Pitch_Target = Gimbal.Get_Imu_Relative_World_Continuous_Pitch() + Vision.Get_Delta_Pitch();
+        float Yaw_Target = Gimbal.Get_Imu_Relative_World_Continuous_Yaw() + Vision.Get_Delta_Yaw();
+
+        // float Pitch_Target = Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch() + Vision.Get_Delta_Pitch();
+        // float Yaw_Target = Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw() + Vision.Get_Delta_Yaw();
 
         //获取到的信息存入PID目标（可能需要先做数据处理！！！！！！！！！）
         PID_Gimbal_Motor_Pitch.Set_Angle_Target(PID_Gimbal_Motor_Pitch.Limit(Pitch_Target, -40.0f, 40.0f));
@@ -344,8 +352,13 @@ extern "C" void main_Task_1ms(void *argument)
       //当前角度赋值
       //Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(Gimbal.Get_Front_Continuous_Pitch(),Gimbal.Get_Front_Continuous_Yaw());
 
-      Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch(),
-                                                  Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw());                                     
+      
+
+      Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(Gimbal.Get_Imu_Relative_World_Continuous_Pitch(),
+                                              Gimbal.Get_Imu_Relative_World_Continuous_Yaw()); 
+
+      // Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch(),
+      //                                             Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw());                                     
       
 
       //PID计算
@@ -416,7 +429,7 @@ void gimbal_task_init(void)
 
     //云台IMU角度初始化
     Gimbal.Reset_Imu_Relative_BaseStart_State();
-    Gimbal.Set_Pitch_Mechanical_Zero_Angle(64.0f);
+    //Gimbal.Set_Pitch_Mechanical_Zero_Angle(64.0f);
 
     //初始化低通滤波器
     Gimbal_Yaw_LPF.Configure(30.0f, 0.001f);

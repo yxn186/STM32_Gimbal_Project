@@ -73,6 +73,24 @@ protected:
     Struct_Gimbal_Angle_State_t Imu_Relative_BaseStart_Roll_State;
 
     /**
+     * @brief IMU相对于世界系的Yaw角度状态
+     * 
+     */
+    Struct_Gimbal_Angle_State_t Imu_Relative_World_Yaw_State;
+
+    /**
+     * @brief IMU相对于世界系的Pitch角度状态
+     * 
+     */
+    Struct_Gimbal_Angle_State_t Imu_Relative_World_Pitch_State;
+
+    /**
+     * @brief IMU相对于世界系的Roll角度状态
+     * 
+     */
+    Struct_Gimbal_Angle_State_t Imu_Relative_World_Roll_State;
+
+    /**
      * @brief 电机模型参考角度（包角）
      * 
      */
@@ -398,6 +416,25 @@ public:
     void Set_Imu_Relative_BaseStart_Angle(void);
 
     /**
+     * @brief 从“世界系实测矩阵”中解算IMU相对于世界系的角度
+     * 
+     */
+    void Set_Imu_Relative_World_Angle(void);
+
+    /**
+     * @brief 总更新函数：只更新IMU虚拟坐标系相对于世界系的姿态角
+     * 
+     * @param Q0
+     * @param Q1
+     * @param Q2
+     * @param Q3
+     */
+    void Update_Imu_Pose_Relative_World(float Q0,
+                                        float Q1,
+                                        float Q2,
+                                        float Q3);
+
+    /**
      * @brief 总更新函数：同时更新IMU实测链和电机模型链
      * 
      * @param Q0
@@ -637,6 +674,48 @@ public:
     {
         return Target_Imu_Relative_BaseStart_Continuous_Roll;
     }
+
+    /**
+     * @brief 获取IMU相对于世界系Yaw角（包角）
+     * 
+     * @return float
+     */
+    float Get_Imu_Relative_World_Yaw(void) const { return Imu_Relative_World_Yaw_State.Raw_Angle; }
+
+    /**
+     * @brief 获取IMU相对于世界系Pitch角（包角）
+     * 
+     * @return float
+     */
+    float Get_Imu_Relative_World_Pitch(void) const { return Imu_Relative_World_Pitch_State.Raw_Angle; }
+
+    /**
+     * @brief 获取IMU相对于世界系Roll角（包角）
+     * 
+     * @return float
+     */
+    float Get_Imu_Relative_World_Roll(void) const { return Imu_Relative_World_Roll_State.Raw_Angle; }
+
+    /**
+     * @brief 获取IMU相对于世界系Yaw连续角
+     * 
+     * @return float
+     */
+    float Get_Imu_Relative_World_Continuous_Yaw(void) const { return Imu_Relative_World_Yaw_State.Continuous_Angle; }
+
+    /**
+     * @brief 获取IMU相对于世界系Pitch连续角
+     * 
+     * @return float
+     */
+    float Get_Imu_Relative_World_Continuous_Pitch(void) const { return Imu_Relative_World_Pitch_State.Continuous_Angle; }
+
+    /**
+     * @brief 获取IMU相对于世界系Roll连续角
+     * 
+     * @return float
+     */
+    float Get_Imu_Relative_World_Continuous_Roll(void) const { return Imu_Relative_World_Roll_State.Continuous_Angle; }
 
     /**
      * @brief 获取IMU原始坐标系在世界系中的实测矩阵
