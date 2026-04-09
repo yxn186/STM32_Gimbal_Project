@@ -11,6 +11,7 @@
 #include "bsp_can.h"
 #include <cstring>
 #include <stdint.h>
+#define motor_gear_ratio_inv 0.063432835820f //减速比倒数 268：17
 
 Class_DJI_Motor_Group *Class_DJI_Motor_Group::Group_FIFO0 = nullptr;
 
@@ -215,6 +216,15 @@ int16_t Class_DJI_Motor::Limit_Out(int16_t out) const
 void Class_DJI_Motor::Set_Out(int16_t out)
 {
     Out = Limit_Out(out);
+}
+
+float Class_DJI_Motor::Get_AngleSpeed(void)
+{
+    if(this->Type == DJI_Motor_3508)
+    {
+        return Speed_Rpm * 0.006642671f; // 1/60.0 * 2.0 * (3.1415926) * motor_gear_ratio_inv
+    }
+    return Speed_Rpm * 0.1047197533333f; // 1/60.0 * 2.0 * (3.1415926)
 }
 
 /**
