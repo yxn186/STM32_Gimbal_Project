@@ -27,6 +27,7 @@
 #include "Gimbal.h"
 #include "FeedForward.h"
 #include "LowPassFilter.h"
+#include "DWT.h"
 
 
 float temp1,temp2,temp3;
@@ -41,6 +42,10 @@ float Gravity_Test_Current_Speed = 0.0f;     // 当前pitch角速度
 float Gravity_Test_Current_Torque = 0.0f;    // 当前pitch电机反馈电流/力矩电流
 int   Gravity_Test_Direction = 1;            // +1: 上扫  -1: 下扫
 bool  Gravity_Test_Stable_Window = false;    // 1表示当前处于可采样稳定窗口
+volatile uint32_t Main_Task_Period_Us = 0;   // 相邻两次任务入口间隔，含调度抖动
+volatile uint32_t Main_Task_Exec_Us = 0;     // 单次循环执行耗时，不含osDelay后的阻塞时间
+volatile uint32_t Main_Task_Period_Cycle = 0;
+volatile uint32_t Main_Task_Exec_Cycle = 0;
 
 typedef struct
 {
@@ -77,6 +82,11 @@ bool is_g_feedback_mode = true;
 //任务时间
 uint32_t Task_Time;
 /*  Task层数据    ------------------------------------------------------------*/
+
+static uint32_t DWT_Cycles_To_Us(uint32_t cycles)
+{
+  return (uint32_t)(((uint64_t)cycles * 1000000ULL) / SystemCoreClock);
+}
 
 /**
  * @brief 云台状态枚举
@@ -181,14 +191,18 @@ void Gimbal_Yaw_Motor_PID_Init(void)
     PID_Gimbal_Motor_Yaw.Kp_s = 1600;
     PID_Gimbal_Motor_Yaw.Ki_s = 105;
     PID_Gimbal_Motor_Yaw.Kd_s = 0;
-    PID_Gimbal_Motor_Yaw.Kp_a = 0.36;
-    PID_Gimbal_Motor_Yaw.Ki_a = 0.001;
+    PID_Gimbal_Motor_Yaw.Kp_a = 0.6;
+    PID_Gimbal_Motor_Yaw.Ki_a = 0.0001;
     PID_Gimbal_Motor_Yaw.Kd_a = 0;
 
     PID_Gimbal_Motor_Yaw.ErrorInt_High_s = 45;
     PID_Gimbal_Motor_Yaw.ErrorInt_Low_s  = -45;
-    PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 10;
-    PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = -10;
+    PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 1800;
+    PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = -1800;
+
+    PID_Gimbal_Motor_Yaw.Integral_Stop_Near_Zero_Enable_a = 1;
+    PID_Gimbal_Motor_Yaw.Integral_Stop_Target_Abs_Threshold_a = 2.0f;
+    PID_Gimbal_Motor_Yaw.Integral_Stop_Error_Abs_Threshold_a = 2.0f;
 
     PID_Gimbal_Motor_Yaw.Speed_Target_High = 20;
     PID_Gimbal_Motor_Yaw.Speed_Target_Low = -20;
@@ -204,17 +218,21 @@ void Gimbal_Yaw_Motor_PID_Init(void)
  */
 void Gimbal_Pitch_Motor_PID_Init(void)
 {
-  PID_Gimbal_Motor_Pitch.Kp_s = 1100;
-  PID_Gimbal_Motor_Pitch.Ki_s = 45;
+  PID_Gimbal_Motor_Pitch.Kp_s = 1300;
+  PID_Gimbal_Motor_Pitch.Ki_s = 32;
   PID_Gimbal_Motor_Pitch.Kd_s = 0;
-  PID_Gimbal_Motor_Pitch.Kp_a = 0.35;
-  PID_Gimbal_Motor_Pitch.Ki_a = 0;
+  PID_Gimbal_Motor_Pitch.Kp_a = 0.3;
+  PID_Gimbal_Motor_Pitch.Ki_a = 0.00001;
   PID_Gimbal_Motor_Pitch.Kd_a = 0;
 
   PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 60;
   PID_Gimbal_Motor_Pitch.ErrorInt_Low_s  = -60;
-  PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 100;
-  PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = -100;
+  PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 6000;
+  PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = -6000;
+
+  PID_Gimbal_Motor_Pitch.Integral_Stop_Near_Zero_Enable_a = 1;
+  PID_Gimbal_Motor_Pitch.Integral_Stop_Target_Abs_Threshold_a = 3.0f;
+  PID_Gimbal_Motor_Pitch.Integral_Stop_Error_Abs_Threshold_a = 3.0f;
 
   PID_Gimbal_Motor_Pitch.Speed_Target_High = 10;
   PID_Gimbal_Motor_Pitch.Speed_Target_Low = -10;
@@ -296,8 +314,22 @@ extern "C" void main_Task_1ms(void *argument)
 {
   /* USER CODE BEGIN main_Task_1ms */
   /* Infinite loop */
+  static uint32_t last_loop_start_cyccnt = 0;
+
+  const uint32_t period_ticks = 1U;              // 1 tick，前提是你的RTOS tick就是1ms
+  uint32_t next_tick = osKernelGetTickCount();   // 记录下一次唤醒基准
   for(;;)
   {
+    uint32_t loop_start_cyccnt = DWT_GetCYCCNT();
+
+    if(last_loop_start_cyccnt != 0U)
+    {
+      Main_Task_Period_Cycle = loop_start_cyccnt - last_loop_start_cyccnt;
+      Main_Task_Period_Us = DWT_Cycles_To_Us(Main_Task_Period_Cycle);
+    }
+
+    last_loop_start_cyccnt = loop_start_cyccnt;
+
     // Gimbal.Update_Imu_Pose_Relative_BaseStart(q0,
     //                                       q1,
     //                                       q2,
@@ -418,8 +450,15 @@ extern "C" void main_Task_1ms(void *argument)
       Gravity_Test_Current_Pitch = Gimbal.Get_Imu_Relative_World_Continuous_Pitch();
       Gravity_Test_Current_Speed = DJI_Motor_Pitch.Get_AngleSpeed();
       Gravity_Test_Current_Torque = DJI_Motor_Pitch.Get_Torque_Current();
-    } 
-    osDelay(1);
+    }
+
+    uint32_t loop_end_cyccnt = DWT_GetCYCCNT();
+    Main_Task_Exec_Cycle = loop_end_cyccnt - loop_start_cyccnt;
+    Main_Task_Exec_Us = DWT_Cycles_To_Us(Main_Task_Exec_Cycle);
+
+    next_tick += period_ticks;
+    osDelayUntil(next_tick);
+    //osDelay(1);
   }
   /* USER CODE END main_Task_1ms */
 }
@@ -433,7 +472,7 @@ extern "C" void main_Task_1ms(void *argument)
 void gimbal_task_init(void)
 {
   //串口初始化
-  Serial_Init(&huart1);
+  Serial_Init(&huart1, NULL, NULL);
 
   //BMI088初始化
   app_bmi088_init();
@@ -459,7 +498,7 @@ void gimbal_task_init(void)
 
     //初始化低通滤波器
     Gimbal_Yaw_LPF.Configure(100.0f, 0.001f);
-    Gimbal_Pitch_LPF.Configure(100.0f, 0.001f);
+    Gimbal_Pitch_LPF.Configure(30.0f, 0.001f);
   }
 }
 
@@ -791,7 +830,7 @@ void Gimbal_Push_PID_Out_To_Motor_Control(void)
   if(is_g_feedback_mode)
   {
     pitch_out = PID_Gimbal_Motor_Pitch.Get_Out() 
-                  + Pitch_Gravity_Compensation(Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
+                  + 2 * Pitch_Gravity_Compensation(Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
   }
   else
   {

@@ -8,6 +8,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "PID.h"
+#include <math.h>
 
 /**
  * @brief PID控制 速度环-->输出值
@@ -19,8 +20,22 @@ void Class_PID::Control_Speed_To_Out(void)
 	Speed_States.Error1 = Speed_States.Error0;
 	Speed_States.Error0 = Speed_Target - Speed_States.Current;
 	
+	//目标接近0且误差很小时停积分
+	uint8_t stop_integral_s = 0;
+	if (Integral_Stop_Near_Zero_Enable_s != 0)
+	{
+		if ((fabsf(Speed_Target) <= Integral_Stop_Target_Abs_Threshold_s) &&
+			(fabsf(Speed_States.Error0) <= Integral_Stop_Error_Abs_Threshold_s))
+		{
+			stop_integral_s = 1;
+		}
+	}
+
 	//误差积分
-	Speed_States.ErrorInt += Speed_States.Error0;
+	if (stop_integral_s == 0)
+	{
+		Speed_States.ErrorInt += Speed_States.Error0;
+	}
 	
 	//积分限幅
 	Speed_States.ErrorInt = Limit(Speed_States.ErrorInt, ErrorInt_Low_s, ErrorInt_High_s);
@@ -43,8 +58,22 @@ void Class_PID::Control_Angle_To_Speed(void)
 	Angle_States.Error1 = Angle_States.Error0;
 	Angle_States.Error0 = Angle_Target - Angle_States.Current;
 	
+	//目标接近0且误差很小时停积分
+	uint8_t stop_integral_a = 0;
+	if (Integral_Stop_Near_Zero_Enable_a != 0)
+	{
+		if ((fabsf(Angle_Target) <= Integral_Stop_Target_Abs_Threshold_a) &&
+			(fabsf(Angle_States.Error0) <= Integral_Stop_Error_Abs_Threshold_a))
+		{
+			stop_integral_a = 1;
+		}
+	}
+
 	//误差积分
-	Angle_States.ErrorInt += Angle_States.Error0;
+	if (stop_integral_a == 0)
+	{
+		Angle_States.ErrorInt += Angle_States.Error0;
+	}
 	
 	//积分限幅
 	Angle_States.ErrorInt = Limit(Angle_States.ErrorInt, ErrorInt_Low_a, ErrorInt_High_a);

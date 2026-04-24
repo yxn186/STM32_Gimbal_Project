@@ -24,11 +24,33 @@
 static uint8_t Serial_TxBuffer_Data[Serial_TxBuffer_Size];
 static uint8_t Serial_RxBuffer_Data[Serial_RxBuffer_Size];
 
+static void Serial_Push_Data_To_RxBuffer(const uint8_t *data, uint16_t length) __attribute__((unused));
+
 Serial_handle_t Serial_handle_global =
 {
     .TxBuffer = Serial_TxBuffer_Data,
     .RxBuffer = Serial_RxBuffer_Data,
 };
+
+/* ---------- Rx callback example ----------
+void Serial_Rx_Callback_Function(void *context, uint8_t *Buffer, uint16_t Length)
+{
+    (void)context;
+
+    if(Serial_handle_global.huart == NULL)
+    {
+        return;
+    }
+
+    if (Length > 0)
+    {
+        Serial_Push_Data_To_RxBuffer(Buffer, Length);
+    }
+}
+
+Register example:
+Serial_Init(&huart1, Serial_Rx_Callback_Function, NULL);
+------------------------------------------ */
 
 //工具函数
 
@@ -100,9 +122,14 @@ static uint16_t Serial_CalculateNextIndex(uint16_t currentIndex, uint16_t ringBu
  * @brief Serial 初始化
  * 
  * @param huart huartx
+ * @param Rx_Callback_Function RX callback, NULL means no RX callback is registered
+ * @param Rx_Callback_Context RX callback context, NULL means unused
  */
-void Serial_Init(UART_HandleTypeDef *huart)
+void Serial_Init(UART_HandleTypeDef *huart, Serial_Rx_Call_Back Rx_Callback_Function, void *Rx_Callback_Context)
 {
+    UART_Rx_Call_Back Registered_Rx_Callback_Function = NULL;
+    void *Registered_Rx_Callback_Context = NULL;
+
     Serial_handle_global.huart = huart;
 
     /* 清空 Tx/Rx 环形缓冲区指针 */
@@ -126,7 +153,13 @@ void Serial_Init(UART_HandleTypeDef *huart)
         __HAL_DMA_DISABLE_IT(Serial_handle_global.huart->hdmarx, DMA_IT_HT);
     }
 
-    UART_Init(huart,Serial_Tx_Callback_Function,Serial_Rx_Callback_Function,Serial_RxBuffer_Size,NULL);
+    if (Rx_Callback_Function != NULL)
+    {
+        Registered_Rx_Callback_Function = Rx_Callback_Function;
+        Registered_Rx_Callback_Context = Rx_Callback_Context;
+    }
+
+    UART_Init(huart,Serial_Tx_Callback_Function,Registered_Rx_Callback_Function,Serial_RxBuffer_Size,Registered_Rx_Callback_Context);
 }
 
 /**
@@ -385,25 +418,4 @@ void Serial_Tx_Callback_Function(UART_HandleTypeDef *huart)
     }
 
     Serial_StartNext_Tx_DMA();
-}
-
-/**
- * @brief 串口接收数据回调函数
- * 
- * @param Buffer 
- * @param Length 
- */
-void Serial_Rx_Callback_Function(void *context, uint8_t *Buffer, uint16_t Length)
-{
-    (void)context;
-
-    if(Serial_handle_global.huart == NULL)
-    {
-        return;
-    }
-
-     if (Length > 0)
-    {
-        Serial_Push_Data_To_RxBuffer(Buffer, Length);
-    }
 }

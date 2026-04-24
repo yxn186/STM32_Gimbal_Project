@@ -57,6 +57,9 @@ void Class_DJI_Motor::Init(DJI_Motor_Type_Typedef Motor_Type, uint8_t Motor_ID, 
     Torque_Current = 0;
     Temperature = 0;
     Out = 0;
+    Angle = 0;
+    Last_Angle = 0;
+    Continuous_Angle = 0;
 
     if (Group != nullptr)
     {
@@ -169,6 +172,12 @@ void Class_DJI_Motor_Group::Register_Motor(Class_DJI_Motor *motor)
 void Class_DJI_Motor::FeedBack_Data(const CAN_Rx_Buffer_t *RxBuffer)
 {
     RawAngle = (RxBuffer->Data[0] << 8) | RxBuffer->Data[1];
+    Angle = RawAngle * 0.0439453125f; // 360.0f / 8192.0f
+    float Delta_Angle = Angle - Last_Angle;
+    if (Delta_Angle > 180.0f)  Delta_Angle -= 360.0f;
+    else if (Delta_Angle < -180.0f) Delta_Angle += 360.0f;
+    Continuous_Angle += Delta_Angle;
+    Last_Angle = Angle;
     Speed_Rpm = (int16_t)(((uint16_t)RxBuffer->Data[2] << 8) | RxBuffer->Data[3]);
     Torque_Current = (int16_t)(((uint16_t)RxBuffer->Data[4] << 8) | RxBuffer->Data[5]);
     Temperature = RxBuffer->Data[6];

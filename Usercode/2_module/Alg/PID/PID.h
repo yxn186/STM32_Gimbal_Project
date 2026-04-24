@@ -46,6 +46,11 @@ class Class_PID
     float Kd_s = 0.0f;
     float ErrorInt_High_s = 0.0f;
     float ErrorInt_Low_s = 0.0f;
+
+    // 积分停用条件（目标接近0且误差很小时停积分）
+    uint8_t Integral_Stop_Near_Zero_Enable_s = 0;
+    float Integral_Stop_Target_Abs_Threshold_s = 0.0f;
+    float Integral_Stop_Error_Abs_Threshold_s = 0.0f;
     float Out_High = 0.0f;
     float Out_Low = 0.0f;
 
@@ -55,6 +60,11 @@ class Class_PID
     float Kd_a = 0.0f;
     float ErrorInt_High_a = 0.0f;
     float ErrorInt_Low_a = 0.0f;
+
+    // 积分停用条件（目标接近0且误差很小时停积分）
+    uint8_t Integral_Stop_Near_Zero_Enable_a = 0;
+    float Integral_Stop_Target_Abs_Threshold_a = 0.0f;
+    float Integral_Stop_Error_Abs_Threshold_a = 0.0f;
     float Speed_Target_High = 0.0f;
     float Speed_Target_Low = 0.0f;
 
@@ -93,7 +103,7 @@ class Class_PID
 
     /**
      * @brief 设置角度环当前值
-     * @param current 速度当前值
+     * @param current 角度当前值
      */
     void Set_Current_Angle(float current)
     {

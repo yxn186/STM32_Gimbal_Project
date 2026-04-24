@@ -25,6 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "DWT.h"
 
 /* USER CODE END Includes */
 
@@ -97,12 +98,12 @@ unsigned long getRunTimeCounterValue(void);
 /* Functions needed when configGENERATE_RUN_TIME_STATS is on */
 __weak void configureTimerForRunTimeStats(void)
 {
-
+  DWT_Init();
 }
 
 __weak unsigned long getRunTimeCounterValue(void)
 {
-return 0;
+  return DWT_GetCYCCNT();
 }
 /* USER CODE END 1 */
 

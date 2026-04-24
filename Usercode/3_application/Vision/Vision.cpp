@@ -38,6 +38,7 @@ void Vision_USB_CallBack(uint8_t *Buffer, uint16_t Length)
     Vision.Online_Time = Task_Time;
     Vision.USB_Rx_Flag = true;
     Vision.Online_State = true;
+    Vision.Rx_Count++;
 
     Vision.Mode_Debounce_Filter(
         Vision.Receive_Union.Data.Mode,
@@ -142,7 +143,19 @@ void Class_Vision::USB_Offline_Detection_1ms(uint32_t Task_Time)
         Detected_State = false;
         Delta_Yaw = 0.0f;
         Delta_Pitch = 0.0f;
+        Rx_Count = 0;
+        Rx_Freq = 0.0f;
+        Freq_Sample_Timer = 0;
         return;
+    }
+
+    // 接收频率采样（每1000ms统计一次）
+    Freq_Sample_Timer++;
+    if (Freq_Sample_Timer >= 1000U)
+    {
+        Rx_Freq = (float)Rx_Count;  // 单位: Hz
+        Rx_Count = 0;
+        Freq_Sample_Timer = 0;
     }
 
     //判断是否接收到数据

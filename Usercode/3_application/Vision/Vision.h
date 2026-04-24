@@ -81,6 +81,11 @@ class Class_Vision
     float Last_Valid_Yaw = 0.0f;   // mode=1时最后一次有效Yaw偏差
     float Last_Valid_Pitch = 0.0f; // mode=1时最后一次有效Pitch偏差
 
+    // 接收频率统计
+    uint16_t Rx_Count = 0;            // 采样周期内有效帧计数
+    float Rx_Freq = 0.0f;             // 接收频率 (Hz)
+    uint32_t Freq_Sample_Timer = 0;   // 频率采样计时 (ms)
+
     void Mode_Debounce_Filter(uint8_t Raw_Mode, float Raw_Yaw, float Raw_Pitch);
 
     public:
@@ -103,6 +108,7 @@ class Class_Vision
 
     float Get_Yaw(void) const { return Yaw; }
     float Get_Pitch(void) const { return Pitch; }
+    float Get_Rx_Freq(void) const { return Rx_Freq; }
 };
 
 extern Class_Vision Vision;

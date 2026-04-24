@@ -114,9 +114,19 @@ public:
         return Out;
     }
 
+    float Get_RawAngle() const
+    {
+        return RawAngle;
+    }
+
     float Get_Angle() const
     {
-        return RawAngle * 0.0439453125;//* 360.0 / 8192.0 返回度
+        return Angle;
+    }
+
+    float Get_Continuous_Angle() const
+    {
+        return Continuous_Angle;
     }
 
     float Get_AngleSpeed(void);
@@ -148,6 +158,9 @@ private:
     Class_DJI_Motor_Group *Group = nullptr;
 
     uint16_t RawAngle = 0;
+    float Angle = 0;
+    float Last_Angle = 0;
+    float Continuous_Angle = 0;
     int16_t Speed_Rpm = 0;
     int16_t Torque_Current = 0;
     uint8_t Temperature = 0;

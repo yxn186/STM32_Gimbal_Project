@@ -20,6 +20,12 @@ extern "C" {
 
 /*YOUR CODE*/
 
+/**
+ * @brief Serial接收回调函数数据类型
+ *
+ */
+typedef void (*Serial_Rx_Call_Back)(void *context, uint8_t *Buffer, uint16_t Length);
+
 
 /**
  * @brief 串口句柄
@@ -51,14 +57,16 @@ void Serial_Tx_Callback_Function(UART_HandleTypeDef *huart);
  * @param Buffer 
  * @param Length 
  */
-void Serial_Rx_Callback_Function(void *context, uint8_t *Buffer, uint16_t Length);
+// void Serial_Rx_Callback_Function(void *context, uint8_t *Buffer, uint16_t Length);
 
 /**
  * @brief Serial 初始化
  * 
  * @param huart huartx
+ * @param Rx_Callback_Function RX callback, NULL means no RX callback is registered
+ * @param Rx_Callback_Context RX callback context, NULL means unused
  */
-void Serial_Init(UART_HandleTypeDef *huart);
+void Serial_Init(UART_HandleTypeDef *huart, Serial_Rx_Call_Back Rx_Callback_Function, void *Rx_Callback_Context);
 
 /**
  * @brief Serial_Printf 串口打印函数
