@@ -719,7 +719,7 @@ void Class_Gimbal::Set_Imu_Relative_World_Angle(void)
     RotationMatrix_To_YawPitchRoll(R_World_From_ImuVirtual_Measurement, &Yaw, &Pitch, &Roll);
 
     Update_Angle_State(&Imu_Relative_World_Yaw_State, Yaw);
-    Update_Angle_State(&Imu_Relative_World_Pitch_State, Pitch);
+    Update_Angle_State(&Imu_Relative_World_Pitch_State, -Pitch);  // 取反：下俯为正，上仰为负
     Update_Angle_State(&Imu_Relative_World_Roll_State, Roll);
 }
 

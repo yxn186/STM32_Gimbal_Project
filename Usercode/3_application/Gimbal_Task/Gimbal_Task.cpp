@@ -31,6 +31,17 @@
 
 float temp1,temp2,temp3;
 
+/* 重力补偿采集模式开关 */
+bool is_pitch_gravity_collect_mode = false;
+
+/* Ozone观察用变量 */
+float Gravity_Test_Target_Pitch = 0.0f;      // 当前给定目标角
+float Gravity_Test_Current_Pitch = 0.0f;     // 当前实际pitch角
+float Gravity_Test_Current_Speed = 0.0f;     // 当前pitch角速度
+float Gravity_Test_Current_Torque = 0.0f;    // 当前pitch电机反馈电流/力矩电流
+int   Gravity_Test_Direction = 1;            // +1: 上扫  -1: 下扫
+bool  Gravity_Test_Stable_Window = false;    // 1表示当前处于可采样稳定窗口
+
 typedef struct
 {
   float speed_amplitude;
@@ -44,7 +55,7 @@ typedef struct
 
 }Temp_Data;
 
-Temp_Data Temp_Control_Data ={0.5,3000,38,2000,0.6,50,0.3,38};
+Temp_Data Temp_Control_Data ={0.5,3000,38,2000,0.8,50,0.4,38};
 
 
 /*  Task层全局变量 ------------------------------------------------------------*/
@@ -59,7 +70,9 @@ bool is_gimbal_target_mode = true;
 
 bool is_feedforward_mode = false;
 
-bool is_lpf_mode = false;
+bool is_lpf_mode = true;
+
+bool is_g_feedback_mode = true;
 
 //任务时间
 uint32_t Task_Time;
@@ -145,17 +158,17 @@ void Gimbal_Yaw_Motor_PID_Init(void)
 {
   if(is_feedforward_mode)
   {
-    PID_Gimbal_Motor_Yaw.Kp_s = 1150;
-    PID_Gimbal_Motor_Yaw.Ki_s = 33;
-    PID_Gimbal_Motor_Yaw.Kd_s = 20;
-    PID_Gimbal_Motor_Yaw.Kp_a = 1.1;
-    PID_Gimbal_Motor_Yaw.Ki_a = 0.02;
-    PID_Gimbal_Motor_Yaw.Kd_a = 0.1;
+    PID_Gimbal_Motor_Yaw.Kp_s = 600;
+    PID_Gimbal_Motor_Yaw.Ki_s = 30;
+    PID_Gimbal_Motor_Yaw.Kd_s = 0;
+    PID_Gimbal_Motor_Yaw.Kp_a = 0.18;
+    PID_Gimbal_Motor_Yaw.Ki_a = 0;
+    PID_Gimbal_Motor_Yaw.Kd_a = 0;
 
-    PID_Gimbal_Motor_Yaw.ErrorInt_High_s = 70;
-    PID_Gimbal_Motor_Yaw.ErrorInt_Low_s  = -70;
-    PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 35;
-    PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = -35;
+    PID_Gimbal_Motor_Yaw.ErrorInt_High_s = 45;
+    PID_Gimbal_Motor_Yaw.ErrorInt_Low_s  = -45;
+    PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 30;
+    PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = -30;
 
     PID_Gimbal_Motor_Yaw.Speed_Target_High = 20;
     PID_Gimbal_Motor_Yaw.Speed_Target_Low = -20;
@@ -165,17 +178,17 @@ void Gimbal_Yaw_Motor_PID_Init(void)
   }
   else
   {
-    PID_Gimbal_Motor_Yaw.Kp_s = 1500;
-    PID_Gimbal_Motor_Yaw.Ki_s = 60;
-    PID_Gimbal_Motor_Yaw.Kd_s = 40;
-    PID_Gimbal_Motor_Yaw.Kp_a = 0.65;
-    PID_Gimbal_Motor_Yaw.Ki_a = 0.005;
+    PID_Gimbal_Motor_Yaw.Kp_s = 1600;
+    PID_Gimbal_Motor_Yaw.Ki_s = 105;
+    PID_Gimbal_Motor_Yaw.Kd_s = 0;
+    PID_Gimbal_Motor_Yaw.Kp_a = 0.36;
+    PID_Gimbal_Motor_Yaw.Ki_a = 0.001;
     PID_Gimbal_Motor_Yaw.Kd_a = 0;
 
     PID_Gimbal_Motor_Yaw.ErrorInt_High_s = 45;
     PID_Gimbal_Motor_Yaw.ErrorInt_Low_s  = -45;
-    PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 30;
-    PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = -30;
+    PID_Gimbal_Motor_Yaw.ErrorInt_High_a = 10;
+    PID_Gimbal_Motor_Yaw.ErrorInt_Low_a  = -10;
 
     PID_Gimbal_Motor_Yaw.Speed_Target_High = 20;
     PID_Gimbal_Motor_Yaw.Speed_Target_Low = -20;
@@ -191,17 +204,17 @@ void Gimbal_Yaw_Motor_PID_Init(void)
  */
 void Gimbal_Pitch_Motor_PID_Init(void)
 {
-  PID_Gimbal_Motor_Pitch.Kp_s = 800;
-  PID_Gimbal_Motor_Pitch.Ki_s = 50;
-  PID_Gimbal_Motor_Pitch.Kd_s = 10;
-  PID_Gimbal_Motor_Pitch.Kp_a = 0.455;
-  PID_Gimbal_Motor_Pitch.Ki_a = 0.009;
+  PID_Gimbal_Motor_Pitch.Kp_s = 1100;
+  PID_Gimbal_Motor_Pitch.Ki_s = 45;
+  PID_Gimbal_Motor_Pitch.Kd_s = 0;
+  PID_Gimbal_Motor_Pitch.Kp_a = 0.35;
+  PID_Gimbal_Motor_Pitch.Ki_a = 0;
   PID_Gimbal_Motor_Pitch.Kd_a = 0;
 
-  PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 80;
-  PID_Gimbal_Motor_Pitch.ErrorInt_Low_s  = -80;
-  PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 20;
-  PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = -42;
+  PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 60;
+  PID_Gimbal_Motor_Pitch.ErrorInt_Low_s  = -60;
+  PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 100;
+  PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = -100;
 
   PID_Gimbal_Motor_Pitch.Speed_Target_High = 10;
   PID_Gimbal_Motor_Pitch.Speed_Target_Low = -10;
@@ -254,7 +267,7 @@ extern "C" void Data_ptintf_task(void *argument)
   {
     Vision.USB_Transmit_Angle(Gimbal.Get_Imu_Relative_World_Continuous_Yaw(),Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
     //app_bmi088_20ms_task();
-    osDelay(1);
+    osDelay(5);
   }
   /* USER CODE END Data_ptintf_task */
 }
@@ -313,11 +326,20 @@ extern "C" void main_Task_1ms(void *argument)
         Gimbal_Pitch_LPF.Reset();
         need_change_mode = false;
       }
-      //判断模式 设置target 弄成函数？
-      if(gimtal_states == gimbal_states_aim_mode)//瞄准装甲板模式 接收视觉信息
+
+      //判断模式 设置target
+      if(is_pitch_gravity_collect_mode)
       {
-        float Pitch_Target = Gimbal.Get_Imu_Relative_World_Continuous_Pitch() + Vision.Get_Delta_Pitch();
-        float Yaw_Target = Gimbal.Get_Imu_Relative_World_Continuous_Yaw() + Vision.Get_Delta_Yaw();
+        Set_Pitch_Motor_Target_Gravity_Collect();
+      }
+      //判断模式 设置target 弄成函数？
+      else if(gimtal_states == gimbal_states_aim_mode)//瞄准装甲板模式 接收视觉信息
+      {
+        // float Pitch_Target = Gimbal.Get_Imu_Relative_World_Continuous_Pitch() + Vision.Get_Pitch();
+        // float Yaw_Target = Gimbal.Get_Imu_Relative_World_Continuous_Yaw() + Vision.Get_Yaw();
+
+        float Pitch_Target = Vision.Get_Pitch();
+        float Yaw_Target = Vision.Get_Yaw();
 
         // float Pitch_Target = Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch() + Vision.Get_Delta_Pitch();
         // float Yaw_Target = Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw() + Vision.Get_Delta_Yaw();
@@ -392,6 +414,10 @@ extern "C" void main_Task_1ms(void *argument)
 
       //将电机输出值进行CAN通信发送
       Gimbal_DJI_Motor_Group.Push_Data();
+
+      Gravity_Test_Current_Pitch = Gimbal.Get_Imu_Relative_World_Continuous_Pitch();
+      Gravity_Test_Current_Speed = DJI_Motor_Pitch.Get_AngleSpeed();
+      Gravity_Test_Current_Torque = DJI_Motor_Pitch.Get_Torque_Current();
     } 
     osDelay(1);
   }
@@ -432,8 +458,8 @@ void gimbal_task_init(void)
     //Gimbal.Set_Pitch_Mechanical_Zero_Angle(64.0f);
 
     //初始化低通滤波器
-    Gimbal_Yaw_LPF.Configure(30.0f, 0.001f);
-    Gimbal_Pitch_LPF.Configure(30.0f, 0.001f);
+    Gimbal_Yaw_LPF.Configure(100.0f, 0.001f);
+    Gimbal_Pitch_LPF.Configure(100.0f, 0.001f);
   }
 }
 
@@ -458,6 +484,80 @@ void gimbal_pid_reset(void)
 }
 
 /* 哨兵模式 Target设置相关 ---------------------------------------------------*/
+
+float Pitch_Gravity_Compensation(float pitch_deg)
+{
+    float theta = pitch_deg * PI / 180.0f;
+    return 1419.6f * sinf(theta + 0.661f) - 1032.5f;
+}
+
+/**
+ * @brief Pitch重力补偿数据采集目标函数
+ *        采用“阶梯式目标角 + 停留”的方式，方便在每个角度稳定后读取电流
+ *
+ * @return float 当前Pitch目标角（度）
+ */
+float Pitch_Target_Gravity_Collect(void)
+{
+  const float min_angle = -40.0f;        // 采集下限
+  const float max_angle =  40.0f;        // 采集上限
+  const float step_angle =  5.0f;        // 每次步进5度
+  const uint32_t hold_ms = 3500U;        // 每个角度停留2秒
+  const uint32_t stable_window_ms = 500U;// 最后0.5秒视为稳定采样窗口
+
+  static bool initialized = false;
+  static float target_angle = min_angle;
+  static int direction = 1;              // +1上扫，-1下扫
+  static uint32_t last_change_time = 0U;
+
+  if(initialized == false)
+  {
+    initialized = true;
+    target_angle = min_angle;
+    direction = 1;
+    last_change_time = Task_Time;
+  }
+
+  uint32_t elapsed = Task_Time - last_change_time;
+
+  /* 最后 stable_window_ms 时间作为稳定采样窗口 */
+  Gravity_Test_Stable_Window = (elapsed >= (hold_ms - stable_window_ms));
+
+  if(elapsed >= hold_ms)
+  {
+    last_change_time = Task_Time;
+    target_angle += direction * step_angle;
+
+    if(target_angle >= max_angle)
+    {
+      target_angle = max_angle;
+      direction = -1;
+    }
+    else if(target_angle <= min_angle)
+    {
+      target_angle = min_angle;
+      direction = 1;
+    }
+  }
+
+  Gravity_Test_Target_Pitch = target_angle;
+  Gravity_Test_Direction = direction;
+
+  return target_angle;
+}
+
+/**
+ * @brief Pitch重力补偿数据采集目标设置函数
+ *        Yaw锁定在当前角度，Pitch按阶梯目标运动
+ */
+void Set_Pitch_Motor_Target_Gravity_Collect(void)
+{
+  /* Yaw保持当前值不动，避免跟着乱跑 */
+  PID_Gimbal_Motor_Yaw.Set_Angle_Target(Gimbal.Get_Imu_Relative_World_Continuous_Yaw());
+
+  /* Pitch执行阶梯扫描 */
+  PID_Gimbal_Motor_Pitch.Set_Angle_Target(Pitch_Target_Gravity_Collect());
+}
 
 /**
  * @brief 云台目标初始化
@@ -685,7 +785,18 @@ void Gimbal_Push_PID_Out_To_Motor_Control(void)
   {
     yaw_out = PID_Gimbal_Motor_Yaw.Get_Out();
   }
-  float pitch_out = PID_Gimbal_Motor_Pitch.Get_Out();
+
+  float pitch_out;
+
+  if(is_g_feedback_mode)
+  {
+    pitch_out = PID_Gimbal_Motor_Pitch.Get_Out() 
+                  + Pitch_Gravity_Compensation(Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
+  }
+  else
+  {
+    pitch_out = PID_Gimbal_Motor_Pitch.Get_Out();
+  }
   
   DJI_Motor_Pitch.Set_Out(pitch_out);
   DJI_Motor_Yaw.Set_Out(yaw_out);

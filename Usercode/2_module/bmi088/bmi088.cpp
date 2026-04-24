@@ -113,7 +113,7 @@ void bmi088_start(bmi088_handle_t *handle)
   uint8_t Temp6[2] = {BMI088_GYRO_RANGE & BMI088_WRITE , BMI088_GYRO_2000};
   bmi088_gyro_write_reg_blocking(handle,Temp6, 2);
 
-  uint8_t Temp7[2] = {BMI088_GYRO_BANDWIDTH & BMI088_WRITE , BMI088_GYRO_200_23_HZ | BMI088_GYRO_BANDWIDTH_MUST_Set};
+  uint8_t Temp7[2] = {BMI088_GYRO_BANDWIDTH & BMI088_WRITE , BMI088_GYRO_200_64_HZ | BMI088_GYRO_BANDWIDTH_MUST_Set};
   bmi088_gyro_write_reg_blocking(handle,Temp7, 2);
 
   //待加int1和3 然后是处理数据 最好先完善下笔记流程

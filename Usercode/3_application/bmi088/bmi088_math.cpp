@@ -21,8 +21,8 @@
 
 
 /* 加速度幅值门限（运动/震动时不使用 acc 修正） */
-#define BMI088_ACC_NORM_MIN_G          (0.70f)
-#define BMI088_ACC_NORM_MAX_G          (1.30f)
+#define BMI088_ACC_NORM_MIN_G          (0.90f)
+#define BMI088_ACC_NORM_MAX_G          (1.10f)
 //↑把ACC数据归一化 来框限acc参考
 
 

@@ -36,6 +36,10 @@ extern bool Global_Init_Finished;
 
 /* 函数---------------------------------------------------------*/
 
+float Pitch_Target_Gravity_Collect(void);
+void Set_Pitch_Motor_Target_Gravity_Collect(void);
+float Pitch_Gravity_Compensation(float pitch_deg);
+
 /**
  * @brief 云台初始化
  * 

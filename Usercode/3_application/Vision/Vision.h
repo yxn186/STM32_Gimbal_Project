@@ -27,8 +27,8 @@ class Class_Vision
     {
         uint8_t Frame_Header;
         uint8_t Mode;
-        float Delta_Yaw;
-        float Delta_Pitch;
+        float Yaw;
+        float Pitch;
         uint8_t Frame_Tail;
     } USB_RX_Frame_t;
     #pragma pack(pop)
@@ -70,6 +70,19 @@ class Class_Vision
     float Delta_Yaw = 0.0f;
     float Delta_Pitch = 0.0f;
 
+    float Yaw = 0.0f;
+    float Pitch = 0.0f;
+
+    // 模式去抖动相关
+    uint8_t Confirmed_Mode = 0;          // 当前已确认生效的模式
+    uint8_t Pending_Mode = 0;            // 正在累计计数的候选模式
+    uint8_t Mode_Pending_Count = 0;      // 候选模式连续帧计数
+    uint8_t Mode_Confirm_Threshold = 5; // 连续N帧才确认模式切换（可调）
+    float Last_Valid_Yaw = 0.0f;   // mode=1时最后一次有效Yaw偏差
+    float Last_Valid_Pitch = 0.0f; // mode=1时最后一次有效Pitch偏差
+
+    void Mode_Debounce_Filter(uint8_t Raw_Mode, float Raw_Yaw, float Raw_Pitch);
+
     public:
 
     void Init(void);
@@ -78,12 +91,18 @@ class Class_Vision
 
     void USB_Offline_Detection_1ms(uint32_t Task_Time);
 
+    /**
+     * @brief 设置模式去抖动确认阈值
+     * @param n 连续收到n帧新模式才确认切换，默认10
+     */
+    void Set_Mode_Confirm_Threshold(uint8_t n) { Mode_Confirm_Threshold = (n > 0U) ? n : 1U; }
+
     bool Get_Online_State(void) const { return Online_State; }
 
     bool Get_Detected_State(void) const { return Detected_State; }
 
-    float Get_Delta_Yaw(void) const { return Delta_Yaw; }
-    float Get_Delta_Pitch(void) const { return Delta_Pitch; }
+    float Get_Yaw(void) const { return Yaw; }
+    float Get_Pitch(void) const { return Pitch; }
 };
 
 extern Class_Vision Vision;

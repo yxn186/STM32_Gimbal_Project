@@ -39,18 +39,11 @@ void Vision_USB_CallBack(uint8_t *Buffer, uint16_t Length)
     Vision.USB_Rx_Flag = true;
     Vision.Online_State = true;
 
-    if (Vision.Receive_Union.Data.Mode == 1)
-    {
-        Vision.Detected_State = true;
-        Vision.Delta_Yaw = Vision.Receive_Union.Data.Delta_Yaw;
-        Vision.Delta_Pitch = Vision.Receive_Union.Data.Delta_Pitch;
-    }
-    else
-    {
-        Vision.Detected_State = false;
-        Vision.Delta_Yaw = 0.0f;
-        Vision.Delta_Pitch = 0.0f;
-    }
+    Vision.Mode_Debounce_Filter(
+        Vision.Receive_Union.Data.Mode,
+        Vision.Receive_Union.Data.Yaw,
+        Vision.Receive_Union.Data.Pitch
+    );
 }
 
 void Class_Vision::Init(void)
@@ -62,7 +55,69 @@ void Class_Vision::Init(void)
     Delta_Yaw = 0.0f;
     Delta_Pitch = 0.0f;
 
+    Confirmed_Mode = 0;
+    Pending_Mode = 0;
+    Mode_Pending_Count = 0;
+    Last_Valid_Yaw = 0.0f;
+    Last_Valid_Pitch = 0.0f;
+
     USB_Init(Vision_USB_CallBack);
+}
+
+/**
+ * @brief 模式去抖动滤波器
+ * @details
+ * 连续收到 Mode_Confirm_Threshold 帧相同模式才确认切换。
+ * 突发跳变帧数不足时忽略，保持当前确认模式不变。
+ * mode=1 切换为 0 时，Delta_Yaw/Pitch 保留最后一次有效值（不清零）。
+ *
+ * @param Raw_Mode     本帧原始模式字段
+ * @param Raw_Yaw   本帧原始Yaw偏差
+ * @param Raw_Pitch 本帧原始Pitch偏差
+ */
+void Class_Vision::Mode_Debounce_Filter(uint8_t Raw_Mode, float Raw_Yaw, float Raw_Pitch)
+{
+    // 每次收到 mode=1 的帧，实时记录当时的有效角度
+    if (Raw_Mode == 1)
+    {
+        Last_Valid_Yaw   = Raw_Yaw;
+        Last_Valid_Pitch = Raw_Pitch;
+    }
+
+    // 连续帧计数：和候选模式相同则累加，否则重置候选
+    if (Raw_Mode == Pending_Mode)
+    {
+        if (Mode_Pending_Count < 255U)
+        {
+            Mode_Pending_Count++;
+        }
+    }
+    else
+    {
+        Pending_Mode = Raw_Mode;
+        Mode_Pending_Count = 1U;
+    }
+
+    // 达到阈值才真正切换已确认模式
+    if (Mode_Pending_Count >= Mode_Confirm_Threshold)
+    {
+        Confirmed_Mode = Pending_Mode;
+    }
+
+    // 根据已确认模式更新对外输出
+    if (Confirmed_Mode == 1)
+    {
+        Detected_State = true;
+        Yaw   = Raw_Yaw;
+        Pitch = Raw_Pitch;
+    }
+    else
+    {
+        Detected_State = false;
+        // mode1→0 确认切换后，保留最后一次有效角度，不清零
+        Yaw   = Last_Valid_Yaw;
+        Pitch = Last_Valid_Pitch;
+    }
 }
 
 void Class_Vision::USB_Transmit_Angle(float Yaw,float Pitch)

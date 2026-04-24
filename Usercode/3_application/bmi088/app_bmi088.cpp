@@ -23,7 +23,7 @@
 #include "task.h"
 #include "MyRTOS.h"
 
-#define biascalibration_target_samples 300 //零飘校准目标次数
+#define biascalibration_target_samples 800 //零飘校准目标次数
 
 /**
  * @brief FreeRTOS相关
@@ -475,7 +475,7 @@ void bmi088_calculate_task(void *argument)
  */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if(GPIO_Pin == GPIO_PIN_0)//acc数据准备好中断
+    if(GPIO_Pin == GPIO_PIN_5)//acc数据准备好中断
     {
         if(bmi088_init_state == init_state_finish)
         {
