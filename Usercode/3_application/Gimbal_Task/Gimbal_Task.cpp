@@ -79,6 +79,11 @@ bool is_lpf_mode = true;
 
 bool is_g_feedback_mode = true;
 
+float Gimbal_Normal_Kf_a_Yaw = 15.0f;
+float Gimbal_Normal_Kf_a_Pitch = 15.0f;
+float Gimbal_Aim_Kf_a_Yaw = 3.0f;
+float Gimbal_Aim_Kf_a_Pitch = 3.0f;
+
 //任务时间
 uint32_t Task_Time;
 /*  Task层数据    ------------------------------------------------------------*/
@@ -157,6 +162,26 @@ Class_DJI_Motor DJI_Motor_Yaw;
 Class_PID PID_Gimbal_Motor_Yaw;
 Class_PID PID_Gimbal_Motor_Pitch;
 
+/**
+ * @brief 根据模式更新云台前馈系数Kf_a
+ * 
+ */
+static void Gimbal_Update_Kf_a_By_Mode(void)
+{
+  float Yaw_Target_Kf_a = Gimbal_Normal_Kf_a_Yaw;
+  float Pitch_Target_Kf_a = Gimbal_Normal_Kf_a_Pitch;
+
+  if((is_pitch_gravity_collect_mode == false) &&
+     (gimtal_states == gimbal_states_aim_mode))
+  {
+    Yaw_Target_Kf_a = Gimbal_Aim_Kf_a_Yaw;
+    Pitch_Target_Kf_a = Gimbal_Aim_Kf_a_Pitch;
+  }
+
+  PID_Gimbal_Motor_Yaw.Kf_a = Yaw_Target_Kf_a;
+  PID_Gimbal_Motor_Pitch.Kf_a = Pitch_Target_Kf_a;
+}
+
 /*  Task层初始化函数    ------------------------------------------------------*/
 
 //PID参数在这里~~~
@@ -189,7 +214,7 @@ void Gimbal_Yaw_Motor_PID_Init(void)
   else
   {
     PID_Gimbal_Motor_Yaw.Kp_s = 1600;
-    PID_Gimbal_Motor_Yaw.Ki_s = 105;
+    PID_Gimbal_Motor_Yaw.Ki_s = 60;
     PID_Gimbal_Motor_Yaw.Kd_s = 0;
     PID_Gimbal_Motor_Yaw.Kp_a = 0.6;
     PID_Gimbal_Motor_Yaw.Ki_a = 0.0001;
@@ -204,11 +229,16 @@ void Gimbal_Yaw_Motor_PID_Init(void)
     PID_Gimbal_Motor_Yaw.Integral_Stop_Target_Abs_Threshold_a = 2.0f;
     PID_Gimbal_Motor_Yaw.Integral_Stop_Error_Abs_Threshold_a = 2.0f;
 
+    PID_Gimbal_Motor_Yaw.Kf_a = Gimbal_Normal_Kf_a_Yaw;
+    PID_Gimbal_Motor_Yaw.FeedForward_Enable_a = 1;
+    PID_Gimbal_Motor_Yaw.FeedForward_High_a = 20;
+    PID_Gimbal_Motor_Yaw.FeedForward_Low_a = -20;
+
     PID_Gimbal_Motor_Yaw.Speed_Target_High = 20;
     PID_Gimbal_Motor_Yaw.Speed_Target_Low = -20;
 
-    PID_Gimbal_Motor_Yaw.Out_High = 6000;
-    PID_Gimbal_Motor_Yaw.Out_Low  = -6000;
+    PID_Gimbal_Motor_Yaw.Out_High = 8000;
+    PID_Gimbal_Motor_Yaw.Out_Low  = -8000;
   }
 }
 
@@ -219,10 +249,10 @@ void Gimbal_Yaw_Motor_PID_Init(void)
 void Gimbal_Pitch_Motor_PID_Init(void)
 {
   PID_Gimbal_Motor_Pitch.Kp_s = 1300;
-  PID_Gimbal_Motor_Pitch.Ki_s = 32;
+  PID_Gimbal_Motor_Pitch.Ki_s = 35;
   PID_Gimbal_Motor_Pitch.Kd_s = 0;
-  PID_Gimbal_Motor_Pitch.Kp_a = 0.3;
-  PID_Gimbal_Motor_Pitch.Ki_a = 0.00001;
+  PID_Gimbal_Motor_Pitch.Kp_a = 0.4;
+  PID_Gimbal_Motor_Pitch.Ki_a = 0.00005;
   PID_Gimbal_Motor_Pitch.Kd_a = 0;
 
   PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 60;
@@ -234,11 +264,16 @@ void Gimbal_Pitch_Motor_PID_Init(void)
   PID_Gimbal_Motor_Pitch.Integral_Stop_Target_Abs_Threshold_a = 3.0f;
   PID_Gimbal_Motor_Pitch.Integral_Stop_Error_Abs_Threshold_a = 3.0f;
 
+  PID_Gimbal_Motor_Pitch.Kf_a = Gimbal_Normal_Kf_a_Pitch;
+  PID_Gimbal_Motor_Pitch.FeedForward_Enable_a = 1;
+  PID_Gimbal_Motor_Pitch.FeedForward_High_a = 20;
+  PID_Gimbal_Motor_Pitch.FeedForward_Low_a = -20;
+
   PID_Gimbal_Motor_Pitch.Speed_Target_High = 10;
   PID_Gimbal_Motor_Pitch.Speed_Target_Low = -10;
 
-  PID_Gimbal_Motor_Pitch.Out_High = 6000;
-  PID_Gimbal_Motor_Pitch.Out_Low  = -6000;
+  PID_Gimbal_Motor_Pitch.Out_High = 8000;
+  PID_Gimbal_Motor_Pitch.Out_Low  = -8000;
 }
 
 /**
@@ -347,6 +382,7 @@ extern "C" void main_Task_1ms(void *argument)
 
     //视觉模式判断
     Gimbal_Vision_Mode_Judge_1ms();
+  Gimbal_Update_Kf_a_By_Mode();
 
     if(is_gimbal_mode)
     {

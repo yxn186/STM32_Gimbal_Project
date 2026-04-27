@@ -61,6 +61,15 @@ class Class_PID
     float ErrorInt_High_a = 0.0f;
     float ErrorInt_Low_a = 0.0f;
 
+    // 角度目标差分前馈（Angle_Target差分 -> Speed_Target）
+    uint8_t FeedForward_Enable_a = 0;   // 0关闭，1开启
+    float Kf_a = 0.0f;                  // 前馈系数
+    float FeedForward_High_a = 0.0f;    // 前馈输出上限
+    float FeedForward_Low_a = 0.0f;     // 前馈输出下限
+
+    float Angle_Target_Last = 0.0f;     // 上一次角度目标
+    float FeedForward_Out_a = 0.0f;     // 当前前馈输出，方便你观察调试
+
     // 积分停用条件（目标接近0且误差很小时停积分）
     uint8_t Integral_Stop_Near_Zero_Enable_a = 0;
     float Integral_Stop_Target_Abs_Threshold_a = 0.0f;

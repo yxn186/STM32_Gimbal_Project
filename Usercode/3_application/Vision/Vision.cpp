@@ -68,7 +68,7 @@ void Class_Vision::Init(void)
 /**
  * @brief 模式去抖动滤波器
  * @details
- * 连续收到 Mode_Confirm_Threshold 帧相同模式才确认切换。
+ * mode 0->1 和 mode 1->0 使用独立阈值确认切换。
  * 突发跳变帧数不足时忽略，保持当前确认模式不变。
  * mode=1 切换为 0 时，Delta_Yaw/Pitch 保留最后一次有效值（不清零）。
  *
@@ -99,8 +99,18 @@ void Class_Vision::Mode_Debounce_Filter(uint8_t Raw_Mode, float Raw_Yaw, float R
         Mode_Pending_Count = 1U;
     }
 
-    // 达到阈值才真正切换已确认模式
-    if (Mode_Pending_Count >= Mode_Confirm_Threshold)
+    uint8_t Mode_confirm_threshold = 1U;
+    if (Confirmed_Mode == 0U && Pending_Mode == 1U)
+    {
+        Mode_confirm_threshold = Mode_Confirm_Threshold_0_To_1;
+    }
+    else if (Confirmed_Mode == 1U && Pending_Mode == 0U)
+    {
+        Mode_confirm_threshold = Mode_Confirm_Threshold_1_To_0;
+    }
+
+    // 达到对应方向的阈值才真正切换已确认模式
+    if (Mode_Pending_Count >= Mode_confirm_threshold)
     {
         Confirmed_Mode = Pending_Mode;
     }

@@ -74,12 +74,13 @@ class Class_Vision
     float Pitch = 0.0f;
 
     // 模式去抖动相关
-    uint8_t Confirmed_Mode = 0;          // 当前已确认生效的模式
-    uint8_t Pending_Mode = 0;            // 正在累计计数的候选模式
-    uint8_t Mode_Pending_Count = 0;      // 候选模式连续帧计数
-    uint8_t Mode_Confirm_Threshold = 5; // 连续N帧才确认模式切换（可调）
-    float Last_Valid_Yaw = 0.0f;   // mode=1时最后一次有效Yaw偏差
-    float Last_Valid_Pitch = 0.0f; // mode=1时最后一次有效Pitch偏差
+    uint8_t Confirmed_Mode = 0;                // 当前已确认生效的模式
+    uint8_t Pending_Mode = 0;                  // 正在累计计数的候选模式
+    uint8_t Mode_Pending_Count = 0;            // 候选模式连续帧计数
+    uint8_t Mode_Confirm_Threshold_0_To_1 = 3; // mode 0->1 连续N帧确认切换
+    uint8_t Mode_Confirm_Threshold_1_To_0 = 15; // mode 1->0 连续N帧确认切换
+    float Last_Valid_Yaw = 0.0f;               // mode=1时最后一次有效Yaw偏差
+    float Last_Valid_Pitch = 0.0f;             // mode=1时最后一次有效Pitch偏差
 
     // 接收频率统计
     uint16_t Rx_Count = 0;            // 采样周期内有效帧计数
@@ -96,11 +97,21 @@ class Class_Vision
 
     void USB_Offline_Detection_1ms(uint32_t Task_Time);
 
-    /**
-     * @brief 设置模式去抖动确认阈值
-     * @param n 连续收到n帧新模式才确认切换，默认10
-     */
-    void Set_Mode_Confirm_Threshold(uint8_t n) { Mode_Confirm_Threshold = (n > 0U) ? n : 1U; }
+    void Set_Mode_Confirm_Threshold_0_To_1(uint8_t n)
+    {
+        Mode_Confirm_Threshold_0_To_1 = (n > 0U) ? n : 1U;
+    }
+
+    void Set_Mode_Confirm_Threshold_1_To_0(uint8_t n)
+    {
+        Mode_Confirm_Threshold_1_To_0 = (n > 0U) ? n : 1U;
+    }
+
+    void Set_Mode_Confirm_Threshold(uint8_t n)
+    {
+        Set_Mode_Confirm_Threshold_0_To_1(n);
+        Set_Mode_Confirm_Threshold_1_To_0(n);
+    }
 
     bool Get_Online_State(void) const { return Online_State; }
 

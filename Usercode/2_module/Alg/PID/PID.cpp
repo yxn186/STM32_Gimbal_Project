@@ -54,6 +54,17 @@ void Class_PID::Control_Speed_To_Out(void)
  */
 void Class_PID::Control_Angle_To_Speed(void)
 {
+	//------------- 计算角度目标差分前馈 -------------
+    float Angle_Target_Delta = Angle_Target - Angle_Target_Last;
+
+    float FeedForward_Angle = 0.0f;
+    if (FeedForward_Enable_a != 0)
+    {
+        FeedForward_Angle = Kf_a * Angle_Target_Delta;
+        FeedForward_Angle = Limit(FeedForward_Angle, FeedForward_Low_a, FeedForward_High_a);
+    }
+    FeedForward_Out_a = FeedForward_Angle;
+
 	//获取误差
 	Angle_States.Error1 = Angle_States.Error0;
 	Angle_States.Error0 = Angle_Target - Angle_States.Current;
@@ -79,9 +90,12 @@ void Class_PID::Control_Angle_To_Speed(void)
 	Angle_States.ErrorInt = Limit(Angle_States.ErrorInt, ErrorInt_Low_a, ErrorInt_High_a);
 	
 	//执行控制
-	Speed_Target = Kp_a * Angle_States.Error0 + Ki_a * Angle_States.ErrorInt + Kd_a * (Angle_States.Error0 - Angle_States.Error1);
+	Speed_Target = Kp_a * Angle_States.Error0 + Ki_a * Angle_States.ErrorInt 
+					+ Kd_a * (Angle_States.Error0 - Angle_States.Error1) + FeedForward_Angle;
 	
 	Speed_Target = Limit(Speed_Target, Speed_Target_Low, Speed_Target_High);
+
+	Angle_Target_Last = Angle_Target;
 }
 
 /**
@@ -109,6 +123,9 @@ void Class_PID::Reset(void)
 	Speed_States.ErrorInt = 0;
 	Speed_States.Error0 = 0;
 	Speed_States.Error1 = 0;
+
+    Angle_Target_Last = 0.0f;
+    FeedForward_Out_a = 0.0f;
 }
 
 //--------------------------------------------------------------------
