@@ -422,17 +422,23 @@ extern "C" void main_Task_1ms(void *argument)
 
     if(is_gimbal_mode)
     {
+      bool is_mode_changed_this_loop = false;
+
       //模式切换判断
       if(need_change_mode)
       {
+        float yaw_lpf_reset_value = PID_Gimbal_Motor_Yaw.Get_Speed_Target();
+        float pitch_lpf_reset_value = PID_Gimbal_Motor_Pitch.Get_Speed_Target();
+
         gimbal_pid_reset();
-        Gimbal_Yaw_LPF.Reset();
-        Gimbal_Pitch_LPF.Reset();
+        Gimbal_Yaw_LPF.Reset(yaw_lpf_reset_value);
+        Gimbal_Pitch_LPF.Reset(pitch_lpf_reset_value);
         if(gimtal_states == gimbal_states_sentry_mode)
         {
           gimbal_target_init();
         }
         need_change_mode = false;
+        is_mode_changed_this_loop = true;
       }
 
       //判断模式 设置target
@@ -468,6 +474,12 @@ extern "C" void main_Task_1ms(void *argument)
         {
           Set_Yaw_and_Pitch_Motor_Speed_Target_Sentry();//速度
         }
+      }
+
+      if(is_mode_changed_this_loop)
+      {
+        PID_Gimbal_Motor_Yaw.Angle_Target_Last = PID_Gimbal_Motor_Yaw.Angle_Target;
+        PID_Gimbal_Motor_Pitch.Angle_Target_Last = PID_Gimbal_Motor_Pitch.Angle_Target;
       }
 
       temp1 = DJI_Motor_Yaw.Get_Angle();
