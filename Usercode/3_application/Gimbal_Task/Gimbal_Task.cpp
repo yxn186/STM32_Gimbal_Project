@@ -86,11 +86,43 @@ float Gimbal_Aim_Kf_a_Pitch = 3.0f;
 
 //任务时间
 uint32_t Task_Time;
+
+//哨兵模式目标过渡相关
+static const uint32_t Sentry_Target_Transition_Time_Ms = 2000U;
+static uint32_t Sentry_Target_Entry_Time = 0U;
+static float Sentry_Target_Entry_Yaw = 0.0f;
+static float Sentry_Target_Entry_Pitch = 0.0f;
+
 /*  Task层数据    ------------------------------------------------------------*/
 
 static uint32_t DWT_Cycles_To_Us(uint32_t cycles)
 {
   return (uint32_t)(((uint64_t)cycles * 1000000ULL) / SystemCoreClock);
+}
+
+static float Sentry_Target_Get_Transition_Ratio(void)
+{
+  float transition_ratio =
+      (float)(Task_Time - Sentry_Target_Entry_Time) / (float)Sentry_Target_Transition_Time_Ms;
+
+  if(transition_ratio > 1.0f)
+  {
+    transition_ratio = 1.0f;
+  }
+
+  return transition_ratio;
+}
+
+static bool Sentry_Target_Is_In_Transition(void)
+{
+  return (Task_Time - Sentry_Target_Entry_Time) < Sentry_Target_Transition_Time_Ms;
+}
+
+static float Sentry_Target_Smooth_Transition(float entry_angle, float sentry_target)
+{
+  float transition_ratio = Sentry_Target_Get_Transition_Ratio();
+
+  return entry_angle + (sentry_target - entry_angle) * transition_ratio;
 }
 
 /**
@@ -170,9 +202,13 @@ static void Gimbal_Update_Kf_a_By_Mode(void)
 {
   float Yaw_Target_Kf_a = Gimbal_Normal_Kf_a_Yaw;
   float Pitch_Target_Kf_a = Gimbal_Normal_Kf_a_Pitch;
+  bool is_sentry_smooth_transition =
+      (gimtal_states == gimbal_states_sentry_mode) &&
+      (need_change_mode || Sentry_Target_Is_In_Transition());
 
   if((is_pitch_gravity_collect_mode == false) &&
-     (gimtal_states == gimbal_states_aim_mode))
+     ((gimtal_states == gimbal_states_aim_mode) ||
+      is_sentry_smooth_transition))
   {
     Yaw_Target_Kf_a = Gimbal_Aim_Kf_a_Yaw;
     Pitch_Target_Kf_a = Gimbal_Aim_Kf_a_Pitch;
@@ -213,10 +249,10 @@ void Gimbal_Yaw_Motor_PID_Init(void)
   }
   else
   {
-    PID_Gimbal_Motor_Yaw.Kp_s = 1600;
+    PID_Gimbal_Motor_Yaw.Kp_s = 1300;
     PID_Gimbal_Motor_Yaw.Ki_s = 60;
     PID_Gimbal_Motor_Yaw.Kd_s = 0;
-    PID_Gimbal_Motor_Yaw.Kp_a = 0.6;
+    PID_Gimbal_Motor_Yaw.Kp_a = 0.35;
     PID_Gimbal_Motor_Yaw.Ki_a = 0.0001;
     PID_Gimbal_Motor_Yaw.Kd_a = 0;
 
@@ -248,15 +284,15 @@ void Gimbal_Yaw_Motor_PID_Init(void)
  */
 void Gimbal_Pitch_Motor_PID_Init(void)
 {
-  PID_Gimbal_Motor_Pitch.Kp_s = 1300;
-  PID_Gimbal_Motor_Pitch.Ki_s = 35;
+  PID_Gimbal_Motor_Pitch.Kp_s = 900;
+  PID_Gimbal_Motor_Pitch.Ki_s = 24;
   PID_Gimbal_Motor_Pitch.Kd_s = 0;
-  PID_Gimbal_Motor_Pitch.Kp_a = 0.4;
+  PID_Gimbal_Motor_Pitch.Kp_a = 0.6;
   PID_Gimbal_Motor_Pitch.Ki_a = 0.00005;
   PID_Gimbal_Motor_Pitch.Kd_a = 0;
 
-  PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 60;
-  PID_Gimbal_Motor_Pitch.ErrorInt_Low_s  = -60;
+  PID_Gimbal_Motor_Pitch.ErrorInt_High_s = 200;
+  PID_Gimbal_Motor_Pitch.ErrorInt_Low_s  = -200;
   PID_Gimbal_Motor_Pitch.ErrorInt_High_a = 6000;
   PID_Gimbal_Motor_Pitch.ErrorInt_Low_a  = -6000;
 
@@ -382,7 +418,7 @@ extern "C" void main_Task_1ms(void *argument)
 
     //视觉模式判断
     Gimbal_Vision_Mode_Judge_1ms();
-  Gimbal_Update_Kf_a_By_Mode();
+    Gimbal_Update_Kf_a_By_Mode();
 
     if(is_gimbal_mode)
     {
@@ -392,6 +428,10 @@ extern "C" void main_Task_1ms(void *argument)
         gimbal_pid_reset();
         Gimbal_Yaw_LPF.Reset();
         Gimbal_Pitch_LPF.Reset();
+        if(gimtal_states == gimbal_states_sentry_mode)
+        {
+          gimbal_target_init();
+        }
         need_change_mode = false;
       }
 
@@ -534,7 +574,7 @@ void gimbal_task_init(void)
 
     //初始化低通滤波器
     Gimbal_Yaw_LPF.Configure(100.0f, 0.001f);
-    Gimbal_Pitch_LPF.Configure(30.0f, 0.001f);
+    Gimbal_Pitch_LPF.Configure(8.0f, 0.001f);
   }
 }
 
@@ -641,6 +681,9 @@ void Set_Pitch_Motor_Target_Gravity_Collect(void)
 void gimbal_target_init(void)
 {
   target_set_time = 0;
+  Sentry_Target_Entry_Time = Task_Time;
+  Sentry_Target_Entry_Yaw = Gimbal.Get_Imu_Relative_World_Continuous_Yaw();
+  Sentry_Target_Entry_Pitch = Gimbal.Get_Imu_Relative_World_Continuous_Pitch();
 }
 
 /**
@@ -651,12 +694,14 @@ void gimbal_target_init(void)
  */
 float Angle_Target_Sentry_Gimbal_Yaw(void)
 {
-  float time_s = Task_Time * 0.001f;   // Task_Time单位是1ms，这里转成秒
+  float time_s = (Task_Time - Sentry_Target_Entry_Time) * 0.001f;   // Task_Time单位是1ms，这里转成秒
 
   float amplitude = Temp_Control_Data.Yaw_a;             // 扫描幅值：±70°
   float frequency = Temp_Control_Data.Yaw_f;             // 频率 0.20Hz，对应周期 5s
 
-  return amplitude * sinf(2.0f * PI * frequency * time_s);
+  float sentry_target = amplitude * sinf(2.0f * PI * frequency * time_s);
+
+  return Sentry_Target_Smooth_Transition(Sentry_Target_Entry_Yaw, sentry_target);
 }
 
 /**
@@ -667,13 +712,15 @@ float Angle_Target_Sentry_Gimbal_Yaw(void)
  */
 float Angle_Target_Sentry_Gimbal_Pitch(void)
 {
-  float time_s = Task_Time * 0.001f;   // Task_Time单位是1ms，这里转成秒
+  float time_s = (Task_Time - Sentry_Target_Entry_Time) * 0.001f;   // Task_Time单位是1ms，这里转成秒
 
   float amplitude = Temp_Control_Data.Pitch_a;             // 扫描幅值：±38°
   float frequency = Temp_Control_Data.Pitch_f;             // 频率 0.12Hz，对应周期约 8.33s
   float phase = PI / 2.0f;             // 加一个相位差，避免和Yaw完全同步
 
-  return amplitude * sinf(2.0f * PI * frequency * time_s + phase);
+  float sentry_target = amplitude * sinf(2.0f * PI * frequency * time_s + phase);
+
+  return Sentry_Target_Smooth_Transition(Sentry_Target_Entry_Pitch, sentry_target);
 } 
 
 /**

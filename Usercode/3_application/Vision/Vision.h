@@ -78,7 +78,7 @@ class Class_Vision
     uint8_t Pending_Mode = 0;                  // 正在累计计数的候选模式
     uint8_t Mode_Pending_Count = 0;            // 候选模式连续帧计数
     uint8_t Mode_Confirm_Threshold_0_To_1 = 3; // mode 0->1 连续N帧确认切换
-    uint8_t Mode_Confirm_Threshold_1_To_0 = 15; // mode 1->0 连续N帧确认切换
+    uint8_t Mode_Confirm_Threshold_1_To_0 = 50; // mode 1->0 连续N帧确认切换
     float Last_Valid_Yaw = 0.0f;               // mode=1时最后一次有效Yaw偏差
     float Last_Valid_Pitch = 0.0f;             // mode=1时最后一次有效Pitch偏差
 
