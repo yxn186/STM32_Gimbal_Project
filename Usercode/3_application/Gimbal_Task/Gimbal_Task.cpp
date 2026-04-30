@@ -55,17 +55,23 @@ typedef struct
   uint32_t angle_period_ms;
   float Yaw_f;
   float Yaw_a;
+  bool Yaw_Is_Trigonometric_Target_Mode;
+  float Yaw_Step_Target;
   float Pitch_f;
   float Pitch_a;
+  bool Pitch_Is_Trigonometric_Target_Mode;
+  float Pitch_Step_Target;
 
 }Temp_Data;
 
-Temp_Data Temp_Control_Data ={0.5,3000,38,2000,0.8,50,0.4,38};
+Temp_Data Temp_Control_Data ={0.5f,3000,38.0f,2000,0.8f,50.0f,true,0.0f,0.4f,38.0f,true,0.0f};
 
 
 /*  Task层全局变量 ------------------------------------------------------------*/
 //全局初始化变量
 bool Global_Init_Finished = false;
+volatile bool Gimbal_Vision_Ready = false;
+volatile bool Gimbal_Auto_Mode_Ready = false;
 
 //自定义是否开启云台模式
 //不开启则纯读BMI数据
@@ -84,11 +90,16 @@ float Gimbal_Normal_Kf_a_Pitch = 15.0f;
 float Gimbal_Aim_Kf_a_Yaw = 3.0f;
 float Gimbal_Aim_Kf_a_Pitch = 3.0f;
 
+float Gimbal_Yaw_Target_High = 60.0f;
+float Gimbal_Yaw_Target_Low = -60.0f;
+float Gimbal_Pitch_Target_High = 40.0f;
+float Gimbal_Pitch_Target_Low = -40.0f;
+
 //任务时间
 uint32_t Task_Time;
 
 //哨兵模式目标过渡相关
-static const uint32_t Sentry_Target_Transition_Time_Ms = 2000U;
+static const uint32_t Sentry_Target_Transition_Time_Ms = 1400U;
 static uint32_t Sentry_Target_Entry_Time = 0U;
 static float Sentry_Target_Entry_Yaw = 0.0f;
 static float Sentry_Target_Entry_Pitch = 0.0f;
@@ -98,6 +109,29 @@ static float Sentry_Target_Entry_Pitch = 0.0f;
 static uint32_t DWT_Cycles_To_Us(uint32_t cycles)
 {
   return (uint32_t)(((uint64_t)cycles * 1000000ULL) / SystemCoreClock);
+}
+
+static float Gimbal_Task_Wrap_To_180(float angle)
+{
+  while(angle > 180.0f)
+  {
+    angle -= 360.0f;
+  }
+
+  while(angle <= -180.0f)
+  {
+    angle += 360.0f;
+  }
+
+  return angle;
+}
+
+static float Gimbal_Task_Unwrap_Vision_Angle(float wrapped_target, float current_continuous_angle)
+{
+  float current_wrapped_angle = Gimbal_Task_Wrap_To_180(current_continuous_angle);
+  float angle_delta = Gimbal_Task_Wrap_To_180(wrapped_target - current_wrapped_angle);
+
+  return current_continuous_angle + angle_delta;
 }
 
 static float Sentry_Target_Get_Transition_Ratio(void)
@@ -116,6 +150,16 @@ static float Sentry_Target_Get_Transition_Ratio(void)
 static bool Sentry_Target_Is_In_Transition(void)
 {
   return (Task_Time - Sentry_Target_Entry_Time) < Sentry_Target_Transition_Time_Ms;
+}
+
+static float Sentry_Target_Get_Post_Transition_Time_S(void)
+{
+  if(Sentry_Target_Is_In_Transition())
+  {
+    return 0.0f;
+  }
+
+  return (float)(Task_Time - Sentry_Target_Entry_Time - Sentry_Target_Transition_Time_Ms) * 0.001f;
 }
 
 static float Sentry_Target_Smooth_Transition(float entry_angle, float sentry_target)
@@ -167,6 +211,8 @@ float Gimbal_Pitch_LPF_Out;
 Class_LowPassFilter Gimbal_Yaw_LPF;
 Class_LowPassFilter Gimbal_Pitch_LPF;
 
+Class_LowPassFilter Gimbal_Pitch_Speed_FB_LPF;
+
 /**
  * @brief 云台前馈类
  * 
@@ -193,6 +239,136 @@ Class_DJI_Motor DJI_Motor_Yaw;
  */
 Class_PID PID_Gimbal_Motor_Yaw;
 Class_PID PID_Gimbal_Motor_Pitch;
+
+//云台机械角参数
+static const float Gimbal_Pitch_Mechanical_Zero = 59.0f;
+static const float Gimbal_Yaw_Mechanical_Zero = 304.0f;
+float Gimbal_Yaw_Mechanical_Relative_Angle = 0.0f;
+float Gimbal_Pitch_Mechanical_Relative_Angle = 0.0f;
+
+
+//云台哨兵模式归位目标
+static const float Gimbal_Yaw_Startup_Home_Target = 304.0f;
+
+//归位完成条件
+static const float Gimbal_Yaw_Startup_Home_Error_Threshold = 1.0f;
+static const float Gimbal_Yaw_Startup_Home_Speed_Threshold = 0.10f;
+static const float Gimbal_Yaw_Startup_Home_Speed_Limit = 20.0f;
+static const float Gimbal_Yaw_Startup_Home_Imu_Target_Step = 20.0f;
+static const float Gimbal_Yaw_Startup_Home_Imu_Direction = 1.0f;
+static const float Gimbal_Yaw_Startup_Home_Zero_Check_Threshold = 0.05f;
+static const uint32_t Gimbal_Yaw_Startup_Home_Stable_Count_Threshold = 200U;
+static const uint32_t Gimbal_Startup_Post_Zero_Sync_Time_Ms = 300U;
+
+//哨兵模式归位相关静态变量
+static bool Gimbal_Yaw_Startup_Home_Done = false;
+static uint32_t Gimbal_Yaw_Startup_Home_Stable_Count = 0U;
+static uint32_t Gimbal_Startup_Post_Zero_Sync_Start_Time = 0U;
+
+static bool Gimbal_Startup_Auto_Mode_Update(void)
+{
+  if(Gimbal_Auto_Mode_Ready)
+  {
+    return true;
+  }
+
+  if((Gimbal_Yaw_Startup_Home_Done == false) || (Gimbal_Vision_Ready == false))
+  {
+    return false;
+  }
+
+  if((Task_Time - Gimbal_Startup_Post_Zero_Sync_Start_Time) <
+     Gimbal_Startup_Post_Zero_Sync_Time_Ms)
+  {
+    return false;
+  }
+
+  Gimbal_Auto_Mode_Ready = true;
+  need_change_mode = true;
+
+  return true;
+}
+
+static bool Gimbal_Yaw_Startup_Home_Update(void)
+{
+  if(Gimbal_Yaw_Startup_Home_Done)
+  {
+    return true;
+  }
+
+  if(Global_Init_Finished == false)
+  {
+    return false;
+  }
+
+  float yaw_motor_current = DJI_Motor_Yaw.Get_Angle();
+  float yaw_imu_current = Gimbal.Get_Imu_Relative_World_Continuous_Yaw();
+  float yaw_speed = DJI_Motor_Yaw.Get_AngleSpeed();
+  float yaw_error = Gimbal_Task_Wrap_To_180(Gimbal_Yaw_Startup_Home_Target - yaw_motor_current);
+  float yaw_imu_target_delta =
+      PID_Gimbal_Motor_Yaw.Limit(yaw_error * Gimbal_Yaw_Startup_Home_Imu_Direction,
+                                 -Gimbal_Yaw_Startup_Home_Imu_Target_Step,
+                                 Gimbal_Yaw_Startup_Home_Imu_Target_Step);
+  float yaw_imu_target = yaw_imu_current + yaw_imu_target_delta;
+
+  PID_Gimbal_Motor_Yaw.Set_Angle_Target(yaw_imu_target);
+  PID_Gimbal_Motor_Yaw.Angle_Target_Last = yaw_imu_target;
+  PID_Gimbal_Motor_Yaw.Set_Current_Angle(yaw_imu_current);
+  PID_Gimbal_Motor_Yaw.Set_Current_Speed(yaw_speed);
+  PID_Gimbal_Motor_Yaw.Control_Angle_To_Speed();
+  PID_Gimbal_Motor_Yaw.Set_Speed_Target(
+      PID_Gimbal_Motor_Yaw.Limit(PID_Gimbal_Motor_Yaw.Get_Speed_Target(),
+                                 -Gimbal_Yaw_Startup_Home_Speed_Limit,
+                                 Gimbal_Yaw_Startup_Home_Speed_Limit));
+  PID_Gimbal_Motor_Yaw.Control_Speed_To_Out();
+
+  DJI_Motor_Yaw.Set_Out(PID_Gimbal_Motor_Yaw.Get_Out());
+  DJI_Motor_Pitch.Set_Out(0);
+  Gimbal_DJI_Motor_Group.Push_Data();
+
+  if((fabsf(yaw_error) < Gimbal_Yaw_Startup_Home_Error_Threshold) &&
+     (fabsf(yaw_speed) < Gimbal_Yaw_Startup_Home_Speed_Threshold))
+  {
+    Gimbal_Yaw_Startup_Home_Stable_Count++;
+  }
+  else
+  {
+    Gimbal_Yaw_Startup_Home_Stable_Count = 0U;
+  }
+
+  if(Gimbal_Yaw_Startup_Home_Stable_Count >= Gimbal_Yaw_Startup_Home_Stable_Count_Threshold)
+  {
+    Gimbal_Yaw_Startup_Home_Done = true;
+    gimbal_pid_reset();
+    Gimbal_Yaw_LPF.Reset(0.0f);
+    Gimbal_Pitch_LPF.Reset(0.0f);
+
+    Gimbal.Set_Imu_Relative_World_Yaw_Zero();
+
+    float current_yaw = Gimbal.Get_Imu_Relative_World_Continuous_Yaw();
+    if(fabsf(current_yaw) > Gimbal_Yaw_Startup_Home_Zero_Check_Threshold)
+    {
+      Gimbal_Yaw_Startup_Home_Done = false;
+      Gimbal_Yaw_Startup_Home_Stable_Count = 0U;
+      return false;
+    }
+
+    Gimbal_Vision_Ready = true;
+  Gimbal_Auto_Mode_Ready = false;
+  Gimbal_Startup_Post_Zero_Sync_Start_Time = Task_Time;
+
+    float current_pitch = Gimbal.Get_Imu_Relative_World_Continuous_Pitch();
+    PID_Gimbal_Motor_Yaw.Set_Angle_Target(current_yaw);
+    PID_Gimbal_Motor_Yaw.Angle_Target_Last = current_yaw;
+    PID_Gimbal_Motor_Pitch.Set_Angle_Target(current_pitch);
+    PID_Gimbal_Motor_Pitch.Angle_Target_Last = current_pitch;
+    gimbal_target_init();
+
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * @brief 根据模式更新云台前馈系数Kf_a
@@ -273,8 +449,8 @@ void Gimbal_Yaw_Motor_PID_Init(void)
     PID_Gimbal_Motor_Yaw.Speed_Target_High = 20;
     PID_Gimbal_Motor_Yaw.Speed_Target_Low = -20;
 
-    PID_Gimbal_Motor_Yaw.Out_High = 8000;
-    PID_Gimbal_Motor_Yaw.Out_Low  = -8000;
+    PID_Gimbal_Motor_Yaw.Out_High = 10000;
+    PID_Gimbal_Motor_Yaw.Out_Low  = -10000;
   }
 }
 
@@ -354,7 +530,10 @@ extern "C" void Data_ptintf_task(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    Vision.USB_Transmit_Angle(Gimbal.Get_Imu_Relative_World_Continuous_Yaw(),Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
+    if(Gimbal_Vision_Ready)
+    {
+      Vision.USB_Transmit_Angle(Gimbal.Get_Imu_Relative_World_Continuous_Yaw(),Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
+    }
     //app_bmi088_20ms_task();
     osDelay(5);
   }
@@ -416,11 +595,25 @@ extern "C" void main_Task_1ms(void *argument)
                                           q3);
 
 
-    //视觉模式判断
-    Gimbal_Vision_Mode_Judge_1ms();
-    Gimbal_Update_Kf_a_By_Mode();
-
+    bool gimbal_ready_to_run = true;
+    bool gimbal_auto_mode_ready = false;
     if(is_gimbal_mode)
+    {
+      gimbal_ready_to_run = Gimbal_Yaw_Startup_Home_Update();
+      if(gimbal_ready_to_run)
+      {
+        gimbal_auto_mode_ready = Gimbal_Startup_Auto_Mode_Update();
+      }
+    }
+
+    //视觉模式判断
+    if(gimbal_ready_to_run && gimbal_auto_mode_ready)
+    {
+      Gimbal_Vision_Mode_Judge_1ms();
+      Gimbal_Update_Kf_a_By_Mode();
+    }
+
+    if(is_gimbal_mode && gimbal_ready_to_run)
     {
       bool is_mode_changed_this_loop = false;
 
@@ -442,7 +635,17 @@ extern "C" void main_Task_1ms(void *argument)
       }
 
       //判断模式 设置target
-      if(is_pitch_gravity_collect_mode)
+      if(gimbal_auto_mode_ready == false)
+      {
+        float current_pitch = Gimbal.Get_Imu_Relative_World_Continuous_Pitch();
+        float current_yaw = Gimbal.Get_Imu_Relative_World_Continuous_Yaw();
+
+        PID_Gimbal_Motor_Pitch.Set_Angle_Target(current_pitch);
+        PID_Gimbal_Motor_Pitch.Angle_Target_Last = current_pitch;
+        PID_Gimbal_Motor_Yaw.Set_Angle_Target(current_yaw);
+        PID_Gimbal_Motor_Yaw.Angle_Target_Last = current_yaw;
+      }
+      else if(is_pitch_gravity_collect_mode)
       {
         Set_Pitch_Motor_Target_Gravity_Collect();
       }
@@ -452,15 +655,23 @@ extern "C" void main_Task_1ms(void *argument)
         // float Pitch_Target = Gimbal.Get_Imu_Relative_World_Continuous_Pitch() + Vision.Get_Pitch();
         // float Yaw_Target = Gimbal.Get_Imu_Relative_World_Continuous_Yaw() + Vision.Get_Yaw();
 
-        float Pitch_Target = Vision.Get_Pitch();
-        float Yaw_Target = Vision.Get_Yaw();
+        //待优化
+        float Current_Continuous_Pitch = Gimbal.Get_Imu_Relative_World_Continuous_Pitch();
+        float Current_Continuous_Yaw = Gimbal.Get_Imu_Relative_World_Continuous_Yaw();
+
+        float Pitch_Target = Gimbal_Task_Unwrap_Vision_Angle(Vision.Get_Pitch(), Current_Continuous_Pitch);
+        float Yaw_Target = Gimbal_Task_Unwrap_Vision_Angle(Vision.Get_Yaw(), Current_Continuous_Yaw);
+
+        float yaw_turn_base = Current_Continuous_Yaw - Gimbal_Task_Wrap_To_180(Current_Continuous_Yaw);
+        float yaw_target_low = yaw_turn_base + Gimbal_Yaw_Target_Low;
+        float yaw_target_high = yaw_turn_base + Gimbal_Yaw_Target_High;
 
         // float Pitch_Target = Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Pitch() + Vision.Get_Delta_Pitch();
         // float Yaw_Target = Gimbal.Get_Imu_Relative_BaseCurrent_Model_Continuous_Yaw() + Vision.Get_Delta_Yaw();
 
         //获取到的信息存入PID目标（可能需要先做数据处理！！！！！！！！！）
-        PID_Gimbal_Motor_Pitch.Set_Angle_Target(PID_Gimbal_Motor_Pitch.Limit(Pitch_Target, -40.0f, 40.0f));
-        PID_Gimbal_Motor_Yaw.Set_Angle_Target(PID_Gimbal_Motor_Yaw.Limit(Yaw_Target, -180.0f, 180.0f));
+        PID_Gimbal_Motor_Pitch.Set_Angle_Target(PID_Gimbal_Motor_Pitch.Limit(Pitch_Target, Gimbal_Pitch_Target_Low, Gimbal_Pitch_Target_High));
+        PID_Gimbal_Motor_Yaw.Set_Angle_Target(PID_Gimbal_Motor_Yaw.Limit(Yaw_Target, yaw_target_low, yaw_target_high));
         
       }
       else if(gimtal_states == gimbal_states_sentry_mode)//哨兵模式 自己乱转
@@ -529,10 +740,44 @@ extern "C" void main_Task_1ms(void *argument)
         PID_Gimbal_Motor_Pitch.Control_Cascade();
       }
       
+      //机械限位
+      Gimbal_Yaw_Mechanical_Relative_Angle =
+          Gimbal_Task_Wrap_To_180(DJI_Motor_Yaw.Get_Angle() - Gimbal_Yaw_Mechanical_Zero);
+      Gimbal_Pitch_Mechanical_Relative_Angle =
+          Gimbal_Task_Wrap_To_180(DJI_Motor_Pitch.Get_Angle() - Gimbal_Pitch_Mechanical_Zero);
+
+      if(Gimbal_Yaw_Mechanical_Relative_Angle <= Gimbal_Yaw_Target_Low)
+      {
+        if(PID_Gimbal_Motor_Yaw.Get_Out() < 0)
+        {
+          PID_Gimbal_Motor_Yaw.Set_Out(0);
+        }
+      }
+      else if(Gimbal_Yaw_Mechanical_Relative_Angle >= Gimbal_Yaw_Target_High)
+      {
+        if(PID_Gimbal_Motor_Yaw.Get_Out() > 0)
+        {
+          PID_Gimbal_Motor_Yaw.Set_Out(0);
+        }
+      }
+
+      //  if(Gimbal_Pitch_Mechanical_Relative_Angle <= Gimbal_Pitch_Target_Low)
+      //   {
+      //     if(PID_Gimbal_Motor_Pitch.Get_Out() > 0)
+      //     {
+      //       PID_Gimbal_Motor_Pitch.Set_Out(0);
+      //     }
+      //   }
+      //   else if(Gimbal_Pitch_Mechanical_Relative_Angle >= Gimbal_Pitch_Target_High)
+      //   {
+      //     if(PID_Gimbal_Motor_Pitch.Get_Out() < 0)
+      //     {
+      //       PID_Gimbal_Motor_Pitch.Set_Out(0);
+      //     }
+      //   }
+
       //将PID输出值推送至电机输出值
       Gimbal_Push_PID_Out_To_Motor_Control();
-
-      //将电机输出值进行CAN通信发送
       Gimbal_DJI_Motor_Group.Push_Data();
 
       Gravity_Test_Current_Pitch = Gimbal.Get_Imu_Relative_World_Continuous_Pitch();
@@ -559,6 +804,10 @@ extern "C" void main_Task_1ms(void *argument)
  */
 void gimbal_task_init(void)
 {
+  Gimbal_Vision_Ready = false;
+  Gimbal_Auto_Mode_Ready = false;
+  Gimbal_Startup_Post_Zero_Sync_Start_Time = 0U;
+
   //串口初始化
   Serial_Init(&huart1, NULL, NULL);
 
@@ -585,8 +834,10 @@ void gimbal_task_init(void)
     //Gimbal.Set_Pitch_Mechanical_Zero_Angle(64.0f);
 
     //初始化低通滤波器
-    Gimbal_Yaw_LPF.Configure(100.0f, 0.001f);
+    Gimbal_Yaw_LPF.Configure(25.0f, 0.001f);
     Gimbal_Pitch_LPF.Configure(8.0f, 0.001f);
+
+    Gimbal_Pitch_Speed_FB_LPF.Configure(25.0f, 0.001f);
   }
 }
 
@@ -706,14 +957,25 @@ void gimbal_target_init(void)
  */
 float Angle_Target_Sentry_Gimbal_Yaw(void)
 {
-  float time_s = (Task_Time - Sentry_Target_Entry_Time) * 0.001f;   // Task_Time单位是1ms，这里转成秒
+  if(Temp_Control_Data.Yaw_Is_Trigonometric_Target_Mode == false)
+  {
+    return Sentry_Target_Smooth_Transition(Sentry_Target_Entry_Yaw,
+                                           Temp_Control_Data.Yaw_Step_Target);
+  }
+
+  if(Sentry_Target_Is_In_Transition())
+  {
+    return Sentry_Target_Smooth_Transition(Sentry_Target_Entry_Yaw, 0.0f);
+  }
+
+  float time_s = Sentry_Target_Get_Post_Transition_Time_S();   // 过渡结束后再从0点开始计时
 
   float amplitude = Temp_Control_Data.Yaw_a;             // 扫描幅值：±70°
   float frequency = Temp_Control_Data.Yaw_f;             // 频率 0.20Hz，对应周期 5s
 
   float sentry_target = amplitude * sinf(2.0f * PI * frequency * time_s);
 
-  return Sentry_Target_Smooth_Transition(Sentry_Target_Entry_Yaw, sentry_target);
+  return sentry_target;
 }
 
 /**
@@ -724,6 +986,11 @@ float Angle_Target_Sentry_Gimbal_Yaw(void)
  */
 float Angle_Target_Sentry_Gimbal_Pitch(void)
 {
+  if(Temp_Control_Data.Pitch_Is_Trigonometric_Target_Mode == false)
+  {
+    return Temp_Control_Data.Pitch_Step_Target;
+  }
+
   float time_s = (Task_Time - Sentry_Target_Entry_Time) * 0.001f;   // Task_Time单位是1ms，这里转成秒
 
   float amplitude = Temp_Control_Data.Pitch_a;             // 扫描幅值：±38°
@@ -828,11 +1095,14 @@ float Angle_Target_Sentry_Pitch(void)
  */
 void Set_Yaw_and_Pitch_Motor_Target_Sentry(void)
 {
-  PID_Gimbal_Motor_Yaw.Set_Angle_Target(Angle_Target_Sentry_Gimbal_Yaw());
+  float yaw_target_low = Gimbal_Yaw_Target_Low;
+  float yaw_target_high = Gimbal_Yaw_Target_High;
+
+  PID_Gimbal_Motor_Yaw.Set_Angle_Target(PID_Gimbal_Motor_Yaw.Limit(Angle_Target_Sentry_Gimbal_Yaw(), yaw_target_low, yaw_target_high));
   //PID_Gimbal_Motor_Yaw.Set_Angle_Target(Angle_Target_Sentry());
   //PID_Gimbal_Motor_Yaw.Set_Speed_Target(Speed_Target_Sentry());
 
-  PID_Gimbal_Motor_Pitch.Set_Angle_Target(Angle_Target_Sentry_Gimbal_Pitch());
+  PID_Gimbal_Motor_Pitch.Set_Angle_Target(PID_Gimbal_Motor_Pitch.Limit(Angle_Target_Sentry_Gimbal_Pitch(), Gimbal_Pitch_Target_Low, Gimbal_Pitch_Target_High));
   //PID_Gimbal_Motor_Pitch.Set_Angle_Target(Angle_Target_Sentry_Pitch());
   //PID_Gimbal_Motor_Pitch.Set_Speed_Target(Speed_Target_Sentry());
 }
@@ -881,6 +1151,12 @@ void Set_Pitch_Current_Angle_and_Speed(float Angle,float Speed)
 void Gimbal_Push_Motor_Current_Speed_To_PID(void)
 {
   PID_Gimbal_Motor_Yaw.Set_Current_Speed(DJI_Motor_Yaw.Get_AngleSpeed());
+
+  float pitch_speed_raw = DJI_Motor_Pitch.Get_AngleSpeed();
+  float pitch_speed_lpf = Gimbal_Pitch_Speed_FB_LPF.Update(pitch_speed_raw);
+
+  //PID_Gimbal_Motor_Pitch.Set_Current_Speed(pitch_speed_lpf);
+
   PID_Gimbal_Motor_Pitch.Set_Current_Speed(DJI_Motor_Pitch.Get_AngleSpeed());
 }
 
@@ -925,7 +1201,7 @@ void Gimbal_Push_PID_Out_To_Motor_Control(void)
   if(is_g_feedback_mode)
   {
     pitch_out = PID_Gimbal_Motor_Pitch.Get_Out() 
-                  + 2 * Pitch_Gravity_Compensation(Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
+                  + 0.6 * Pitch_Gravity_Compensation(Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
   }
   else
   {

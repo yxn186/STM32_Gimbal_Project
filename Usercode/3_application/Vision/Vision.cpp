@@ -11,6 +11,8 @@
 #include "bsp_usb.h"
 
 extern uint32_t Task_Time;
+extern volatile bool Gimbal_Vision_Ready;
+extern volatile bool Gimbal_Auto_Mode_Ready;
 
 Class_Vision Vision;
 
@@ -19,6 +21,8 @@ void Vision_USB_CallBack(uint8_t *Buffer, uint16_t Length)
     if (Length == 0) return;
 
     if (Global_Init_Finished == false) return;
+    if (Gimbal_Vision_Ready == false) return;
+    if (Gimbal_Auto_Mode_Ready == false) return;
 
     //回显
     //USB_Transmit_Data(Buffer, Length);

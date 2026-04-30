@@ -77,6 +77,8 @@ protected:
      * 
      */
     Struct_Gimbal_Angle_State_t Imu_Relative_World_Yaw_State;
+    float Imu_Relative_World_Yaw_Zero_Offset = 0.0f;
+    uint8_t Imu_Relative_World_Yaw_Zero_Enabled = 0U;
 
     /**
      * @brief IMU相对于世界系的Pitch角度状态
@@ -271,6 +273,14 @@ public:
      * 
      */
     void Reset_Imu_Relative_BaseStart_State(void);
+
+    void Set_Imu_Relative_World_Yaw_Zero(void)
+    {
+        Imu_Relative_World_Yaw_Zero_Offset = Imu_Relative_World_Yaw_State.Continuous_Angle;
+        Imu_Relative_World_Yaw_Zero_Enabled = 1U;
+        Imu_Relative_World_Yaw_State.Raw_Angle = 0.0f;
+        Imu_Relative_World_Yaw_State.Continuous_Angle = 0.0f;
+    }
 
     /**
      * @brief 设置IMU角度（Yaw + Pitch + Roll）

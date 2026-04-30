@@ -129,6 +129,11 @@ class Class_PID
         return Out;
     }
 
+    void Set_Out(float out)
+    {
+        Out = out;
+    }
+
     /**
      * @brief 获取速度目标值
      * 

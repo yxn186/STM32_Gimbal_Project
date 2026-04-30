@@ -155,6 +155,8 @@ void Class_Gimbal::Reset_Imu_Relative_BaseStart_State(void)
     Imu_Relative_World_Yaw_State = Struct_Gimbal_Angle_State_t();
     Imu_Relative_World_Pitch_State = Struct_Gimbal_Angle_State_t();
     Imu_Relative_World_Roll_State = Struct_Gimbal_Angle_State_t();
+    Imu_Relative_World_Yaw_Zero_Offset = 0.0f;
+    Imu_Relative_World_Yaw_Zero_Enabled = 0U;
 
     Imu_Yaw = 0.0f;
     Imu_Pitch = 0.0f;
@@ -719,6 +721,12 @@ void Class_Gimbal::Set_Imu_Relative_World_Angle(void)
     RotationMatrix_To_YawPitchRoll(R_World_From_ImuVirtual_Measurement, &Yaw, &Pitch, &Roll);
 
     Update_Angle_State(&Imu_Relative_World_Yaw_State, Yaw);
+    if(Imu_Relative_World_Yaw_Zero_Enabled != 0U)
+    {
+        Imu_Relative_World_Yaw_State.Continuous_Angle -= Imu_Relative_World_Yaw_Zero_Offset;
+        Imu_Relative_World_Yaw_State.Raw_Angle =
+            Gimbal_Angle_Wrap_To_180(Imu_Relative_World_Yaw_State.Continuous_Angle);
+    }
     Update_Angle_State(&Imu_Relative_World_Pitch_State, -Pitch);  // 取反：下俯为正，上仰为负
     Update_Angle_State(&Imu_Relative_World_Roll_State, Roll);
 }
