@@ -44,26 +44,26 @@ float Pitch_Gravity_Compensation(float pitch_deg);
  * @brief 云台初始化
  * 
  */
-void gimbal_task_init(void);
+void Gimbal_Task_Global_Init(void);
 
 /**
  * @brief 云台初始化（循环）
  * 
  * @return uint8_t 
  */
-uint8_t gimbal_task_init_loop(void);
+uint8_t Gimbal_Task_Global_Init_Loop(void);
 
 /**
  * @brief 云台PID重置信息
  * 
  */
-void gimbal_pid_reset(void);
+void Gimbal_PID_Reset(void);
 
 /**
  * @brief 云台目标初始化
  * 
  */
-void gimbal_target_init(void);
+void Gimbal_Target_Init(void);
 
 //枚举
 
@@ -162,6 +162,8 @@ float Angle_Target_Sentry_Pitch(void);
 float Angle_Target_Sentry_Gimbal_Yaw(void);
 
 float Angle_Target_Sentry_Gimbal_Pitch(void);
+
+static bool Sentry_Target_Is_In_Transition(void);
 #ifdef __cplusplus
 }
 #endif

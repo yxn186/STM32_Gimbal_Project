@@ -11,15 +11,23 @@
 #include "bsp_usb.h"
 
 extern uint32_t Task_Time;
+
 extern volatile bool Gimbal_Vision_Ready;
 extern volatile bool Gimbal_Auto_Mode_Ready;
 
 Class_Vision Vision;
 
+/**
+ * @brief Vision USB callback function
+ * 
+ * @param Buffer Pointer to the received data buffer
+ * @param Length Length of the received data
+ */
 void Vision_USB_CallBack(uint8_t *Buffer, uint16_t Length)
 {
     if (Length == 0) return;
 
+    //等待初始化完成和云台准备好
     if (Global_Init_Finished == false) return;
     if (Gimbal_Vision_Ready == false) return;
     if (Gimbal_Auto_Mode_Ready == false) return;
@@ -44,13 +52,13 @@ void Vision_USB_CallBack(uint8_t *Buffer, uint16_t Length)
     Vision.Online_State = true;
     Vision.Rx_Count++;
 
-    Vision.Mode_Debounce_Filter(
-        Vision.Receive_Union.Data.Mode,
-        Vision.Receive_Union.Data.Yaw,
-        Vision.Receive_Union.Data.Pitch
-    );
+    Vision.Mode_Debounce_Filter(Vision.Receive_Union.Data.Mode,Vision.Receive_Union.Data.Yaw,Vision.Receive_Union.Data.Pitch);
 }
 
+/**
+ * @brief 初始化视觉系统
+ * 
+ */
 void Class_Vision::Init(void)
 {
     Online_Time = 0;
@@ -135,6 +143,12 @@ void Class_Vision::Mode_Debounce_Filter(uint8_t Raw_Mode, float Raw_Yaw, float R
     }
 }
 
+/**
+ * @brief 通过USB发送角度数据
+ * 
+ * @param Yaw   要发送的Yaw角度
+ * @param Pitch 要发送的Pitch角度
+ */
 void Class_Vision::USB_Transmit_Angle(float Yaw,float Pitch)
 {
     Transmit_Union.Data.Frame_Header = 0xAA;
@@ -146,6 +160,11 @@ void Class_Vision::USB_Transmit_Angle(float Yaw,float Pitch)
     USB_Transmit_Data(Transmit_Union.Raw, sizeof(Transmit_Union.Raw));
 }
 
+/**
+ * @brief USB离线检测，每1ms调用一次
+ * 
+ * @param Task_Time 当前任务时间
+ */
 void Class_Vision::USB_Offline_Detection_1ms(uint32_t Task_Time)
 {
     //等待初始化完成
