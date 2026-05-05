@@ -784,7 +784,7 @@ void Gimbal_Task_Global_Init(void)
   //回中相关初始化
   Gimbal_Vision_Ready = false;
   Gimbal_Auto_Mode_Ready = false;
-  P = 0U;
+  Gimbal_Startup_Post_Zero_Sync_Start_Time = 0U;
 
   //串口初始化
   Serial_Init(&huart1, NULL, NULL);
