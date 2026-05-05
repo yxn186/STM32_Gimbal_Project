@@ -13,6 +13,7 @@
 #include "Serial.h"
 #include "gimbal_task.h"
 #include "usart.h"
+#include <cstdint>
 #include <stdbool.h>
 #include "usbd_cdc_if.h"
 #include "bsp_usb.h"
@@ -29,9 +30,6 @@
 #include "LowPassFilter.h"
 #include "DWT.h"
 
-
-float temp1,temp2,temp3;
-
 /* 重力补偿采集模式开关 */
 bool is_pitch_gravity_collect_mode = false;
 
@@ -40,31 +38,39 @@ float Gravity_Test_Target_Pitch = 0.0f;      // 当前给定目标角
 float Gravity_Test_Current_Pitch = 0.0f;     // 当前实际pitch角
 float Gravity_Test_Current_Speed = 0.0f;     // 当前pitch角速度
 float Gravity_Test_Current_Torque = 0.0f;    // 当前pitch电机反馈电流/力矩电流
-int   Gravity_Test_Direction = 1;            // +1: 上扫  -1: 下扫
+uint8_t Gravity_Test_Direction = 1;          // +1: 上扫  -1: 下扫
 bool  Gravity_Test_Stable_Window = false;    // 1表示当前处于可采样稳定窗口
 volatile uint32_t Main_Task_Period_Us = 0;   // 相邻两次任务入口间隔，含调度抖动
 volatile uint32_t Main_Task_Exec_Us = 0;     // 单次循环执行耗时，不含osDelay后的阻塞时间
 volatile uint32_t Main_Task_Period_Cycle = 0;
 volatile uint32_t Main_Task_Exec_Cycle = 0;
 
+/**
+ * @brief 控制参数结构体
+ * 
+ */
 typedef struct
 {
-  float speed_amplitude;
-  uint32_t speed_period_ms;
-  float angle_amplitude;
-  uint32_t angle_period_ms;
-  float Yaw_f;
-  float Yaw_a;
-  bool Yaw_Is_Trigonometric_Target_Mode;
-  float Yaw_Step_Target;
-  float Pitch_f;
-  float Pitch_a;
-  bool Pitch_Is_Trigonometric_Target_Mode;
-  float Pitch_Step_Target;
-  bool Is_Go_To_Zero_To_Start_Sentry;
-}Temp_Data;
+  float speed_amplitude;                      //速度环--正弦目标振幅
+  uint32_t speed_period_ms;                   //速度环--正弦目标周期               
+  float angle_amplitude;                      //角度环--正弦目标振幅
+  uint32_t angle_period_ms;                   //角度环--正弦目标周期
+  float Yaw_f;                                //Yaw环--正弦目标频率
+  float Yaw_a;                                //Yaw环--正弦目标振幅
+  bool Yaw_Is_Trigonometric_Target_Mode;      //Yaw环--是否为正弦目标模式
+  float Yaw_Step_Target;                      //Yaw环--步进目标
+  float Pitch_f;                              //Pitch环--正弦目标频率
+  float Pitch_a;                              //Pitch环--正弦目标振幅
+  bool Pitch_Is_Trigonometric_Target_Mode;    //Pitch环--是否为正弦目标模式
+  float Pitch_Step_Target;                    //Pitch环--阶跃目标
+  bool Is_Go_To_Zero_To_Start_Sentry;         //是否回零以开始哨兵模式
+}Control_Config_t;
 
-Temp_Data Temp_Control_Data ={0.5f,3000,38.0f,2000,0.8f,50.0f,true,0.0f,0.4f,38.0f,true,0.0f,false};
+Control_Config_t Control_Config_Data = {0.5f,3000,38.0f,
+                                        2000,0.8f,50.0f,
+                                        true,0.0f,0.4f,
+                                        38.0f,true,
+                                        0.0f,false};
 
 
 /*  Task层全局变量 ------------------------------------------------------------*/
@@ -90,6 +96,7 @@ float Gimbal_Normal_Kf_a_Pitch = 15.0f;
 float Gimbal_Aim_Kf_a_Yaw = 3.0f;
 float Gimbal_Aim_Kf_a_Pitch = 3.0f;
 
+// Yaw 限位配置保持包角语义，连续角目标需要先展开到当前圈数。
 float Gimbal_Yaw_Target_High = 180.0f;
 float Gimbal_Yaw_Target_Low = -180.0f;
 float Gimbal_Pitch_Target_High = 40.0f;
@@ -111,25 +118,15 @@ static uint32_t DWT_Cycles_To_Us(uint32_t cycles)
   return (uint32_t)(((uint64_t)cycles * 1000000ULL) / SystemCoreClock);
 }
 
-static float Gimbal_Task_Wrap_To_180(float angle)
+static float Gimbal_Task_Get_Turn_Base(float continuous_angle)
 {
-  while(angle > 180.0f)
-  {
-    angle -= 360.0f;
-  }
-
-  while(angle <= -180.0f)
-  {
-    angle += 360.0f;
-  }
-
-  return angle;
+  return continuous_angle - MyMath_Wrap_To_180(continuous_angle);
 }
 
 static float Gimbal_Task_Unwrap_Vision_Angle(float wrapped_target, float current_continuous_angle)
 {
-  float current_wrapped_angle = Gimbal_Task_Wrap_To_180(current_continuous_angle);
-  float angle_delta = Gimbal_Task_Wrap_To_180(wrapped_target - current_wrapped_angle);
+  float current_wrapped_angle = MyMath_Wrap_To_180(current_continuous_angle);
+  float angle_delta = MyMath_Wrap_To_180(wrapped_target - current_wrapped_angle);
 
   return current_continuous_angle + angle_delta;
 }
@@ -290,7 +287,7 @@ static bool Gimbal_Yaw_Startup_Home_Update(void)
   float yaw_speed = DJI_Motor_Yaw.Get_AngleSpeed();
 
   //用电机当前包角 DJI_Motor_Yaw.Get_Angle() 算机械误差。
-  float yaw_error = Gimbal_Task_Wrap_To_180(Gimbal_Yaw_Startup_Home_Target - yaw_motor_current);
+  float yaw_error = MyMath_Wrap_To_180(Gimbal_Yaw_Startup_Home_Target - yaw_motor_current);
 
   //把这个误差限幅到 ±20°，形成 IMU yaw 目标增量 但不过大
   float yaw_imu_target_delta =PID_Gimbal_Motor_Yaw.Limit(yaw_error * Gimbal_Yaw_Startup_Home_Imu_Direction,
@@ -378,13 +375,9 @@ static void Gimbal_Update_Kf_a_By_Mode(void)
 {
   float Yaw_Target_Kf_a = Gimbal_Normal_Kf_a_Yaw;
   float Pitch_Target_Kf_a = Gimbal_Normal_Kf_a_Pitch;
-  bool is_sentry_smooth_transition =
-      (gimtal_states == gimbal_states_sentry_mode) &&
-      (Need_Change_Mode || Sentry_Target_Is_In_Transition());
+  bool is_sentry_smooth_transition = (gimtal_states == gimbal_states_sentry_mode) && (Need_Change_Mode || Sentry_Target_Is_In_Transition());
 
-  if((is_pitch_gravity_collect_mode == false) &&
-     ((gimtal_states == gimbal_states_aim_mode) ||
-      is_sentry_smooth_transition))
+  if((is_pitch_gravity_collect_mode == false) && ((gimtal_states == gimbal_states_aim_mode) || is_sentry_smooth_transition))
   {
     Yaw_Target_Kf_a = Gimbal_Aim_Kf_a_Yaw;
     Pitch_Target_Kf_a = Gimbal_Aim_Kf_a_Pitch;
@@ -524,7 +517,7 @@ extern "C" void StartInitTask(void *argument)
 }
 
 /**
- * @brief 数据打印任务 20ms
+ * @brief 数据打印任务
  * 
  * @param argument 
  */
@@ -538,7 +531,6 @@ extern "C" void Data_ptintf_task(void *argument)
     {
       Vision.USB_Transmit_Angle(Gimbal.Get_Imu_Relative_World_Continuous_Yaw(),Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
     }
-    //app_bmi088_20ms_task();
     osDelay(5);
   }
   /* USER CODE END Data_ptintf_task */
@@ -662,7 +654,7 @@ extern "C" void main_Task_1ms(void *argument)
         float Pitch_Target = Gimbal_Task_Unwrap_Vision_Angle(Vision.Get_Pitch(), Current_Continuous_Pitch);
         float Yaw_Target = Gimbal_Task_Unwrap_Vision_Angle(Vision.Get_Yaw(), Current_Continuous_Yaw);
 
-        float yaw_turn_base = Current_Continuous_Yaw - Gimbal_Task_Wrap_To_180(Current_Continuous_Yaw);
+        float yaw_turn_base = Gimbal_Task_Get_Turn_Base(Current_Continuous_Yaw);
         float yaw_target_low = yaw_turn_base + Gimbal_Yaw_Target_Low;
         float yaw_target_high = yaw_turn_base + Gimbal_Yaw_Target_High;
 
@@ -691,19 +683,15 @@ extern "C" void main_Task_1ms(void *argument)
         PID_Gimbal_Motor_Pitch.Angle_Target_Last = PID_Gimbal_Motor_Pitch.Angle_Target;
       }
 
-      temp1 = DJI_Motor_Yaw.Get_Angle();
-      temp2 = DJI_Motor_Pitch.Get_Angle();
-      temp3 = DJI_Motor_Yaw.Get_Torque_Current();
-
       //上面根据不同模式设置完Target 开始进行PID
       
       //当前速度赋值 获取电机当前速度作为PID的当前速度输入
-      Gimbal_Push_Motor_Current_Speed_To_PID();
+      PID_Gimbal_Motor_Yaw.Set_Current_Speed(DJI_Motor_Yaw.Get_AngleSpeed());
+      PID_Gimbal_Motor_Pitch.Set_Current_Speed(DJI_Motor_Pitch.Get_AngleSpeed());
 
       //当前角度赋值 获取IMU相对于世界系的连续角度作为PID的当前角度输入
-      //Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(Gimbal.Get_Front_Continuous_Pitch(),Gimbal.Get_Front_Continuous_Yaw());
-      Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(Gimbal.Get_Imu_Relative_World_Continuous_Pitch(),
-                                              Gimbal.Get_Imu_Relative_World_Continuous_Yaw()); 
+      PID_Gimbal_Motor_Pitch.Set_Current_Angle(Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
+      PID_Gimbal_Motor_Yaw.Set_Current_Angle(Gimbal.Get_Imu_Relative_World_Continuous_Yaw());
 
       //PID计算
       if(!is_lpf_mode)
@@ -732,8 +720,8 @@ extern "C" void main_Task_1ms(void *argument)
       }
       
       //机械限位
-      Gimbal_Yaw_Mechanical_Relative_Angle = Gimbal_Task_Wrap_To_180(DJI_Motor_Yaw.Get_Angle() - Gimbal_Yaw_Mechanical_Zero);
-      Gimbal_Pitch_Mechanical_Relative_Angle = Gimbal_Task_Wrap_To_180(DJI_Motor_Pitch.Get_Angle() - Gimbal_Pitch_Mechanical_Zero);
+      Gimbal_Yaw_Mechanical_Relative_Angle = MyMath_Wrap_To_180(DJI_Motor_Yaw.Get_Angle() - Gimbal_Yaw_Mechanical_Zero);
+      Gimbal_Pitch_Mechanical_Relative_Angle = MyMath_Wrap_To_180(DJI_Motor_Pitch.Get_Angle() - Gimbal_Pitch_Mechanical_Zero);
 
       if(Gimbal_Yaw_Mechanical_Relative_Angle <= Gimbal_Yaw_Target_Low)
       {
@@ -796,7 +784,7 @@ void Gimbal_Task_Global_Init(void)
   //回中相关初始化
   Gimbal_Vision_Ready = false;
   Gimbal_Auto_Mode_Ready = false;
-  Gimbal_Startup_Post_Zero_Sync_Start_Time = 0U;
+  P = 0U;
 
   //串口初始化
   Serial_Init(&huart1, NULL, NULL);
@@ -850,81 +838,6 @@ void Gimbal_PID_Reset(void)
 }
 
 /* 哨兵模式 Target设置相关 ---------------------------------------------------*/
-
-float Pitch_Gravity_Compensation(float pitch_deg)
-{
-    float theta = pitch_deg * PI / 180.0f;
-    return 1419.6f * sinf(theta + 0.661f) - 1032.5f;
-}
-
-/**
- * @brief Pitch重力补偿数据采集目标函数
- *        采用“阶梯式目标角 + 停留”的方式，方便在每个角度稳定后读取电流
- *
- * @return float 当前Pitch目标角（度）
- */
-float Pitch_Target_Gravity_Collect(void)
-{
-  const float min_angle = -40.0f;        // 采集下限
-  const float max_angle =  40.0f;        // 采集上限
-  const float step_angle =  5.0f;        // 每次步进5度
-  const uint32_t hold_ms = 3500U;        // 每个角度停留2秒
-  const uint32_t stable_window_ms = 500U;// 最后0.5秒视为稳定采样窗口
-
-  static bool initialized = false;
-  static float target_angle = min_angle;
-  static int direction = 1;              // +1上扫，-1下扫
-  static uint32_t last_change_time = 0U;
-
-  if(initialized == false)
-  {
-    initialized = true;
-    target_angle = min_angle;
-    direction = 1;
-    last_change_time = Task_Time;
-  }
-
-  uint32_t elapsed = Task_Time - last_change_time;
-
-  /* 最后 stable_window_ms 时间作为稳定采样窗口 */
-  Gravity_Test_Stable_Window = (elapsed >= (hold_ms - stable_window_ms));
-
-  if(elapsed >= hold_ms)
-  {
-    last_change_time = Task_Time;
-    target_angle += direction * step_angle;
-
-    if(target_angle >= max_angle)
-    {
-      target_angle = max_angle;
-      direction = -1;
-    }
-    else if(target_angle <= min_angle)
-    {
-      target_angle = min_angle;
-      direction = 1;
-    }
-  }
-
-  Gravity_Test_Target_Pitch = target_angle;
-  Gravity_Test_Direction = direction;
-
-  return target_angle;
-}
-
-/**
- * @brief Pitch重力补偿数据采集目标设置函数
- *        Yaw锁定在当前角度，Pitch按阶梯目标运动
- */
-void Set_Pitch_Motor_Target_Gravity_Collect(void)
-{
-  /* Yaw保持当前值不动，避免跟着乱跑 */
-  PID_Gimbal_Motor_Yaw.Set_Angle_Target(Gimbal.Get_Imu_Relative_World_Continuous_Yaw());
-
-  /* Pitch执行阶梯扫描 */
-  PID_Gimbal_Motor_Pitch.Set_Angle_Target(Pitch_Target_Gravity_Collect());
-}
-
 /**
  * @brief 云台目标初始化
  * 
@@ -997,18 +910,18 @@ static float Sentry_Target_Smooth_Transition(float Entry_Angle, float Sentry_Tar
 float Angle_Target_Sentry_Gimbal_Yaw(void)
 {
   //阶跃控制模式
-  if(Temp_Control_Data.Yaw_Is_Trigonometric_Target_Mode == false)
+  if(Control_Config_Data.Yaw_Is_Trigonometric_Target_Mode == false)
   {
     //返回阶跃模式目标值
-    return Temp_Control_Data.Yaw_Step_Target;
+    return Control_Config_Data.Yaw_Step_Target;
   }
 
-  float Yaw_A = Temp_Control_Data.Yaw_a;
-  float Yaw_f = Temp_Control_Data.Yaw_f;
+  float Yaw_A = Control_Config_Data.Yaw_a;
+  float Yaw_f = Control_Config_Data.Yaw_f;
 
   //Yaw_Is_Trigonometric_Target_Mode是True
   //正常哨兵模式
-  if(Temp_Control_Data.Is_Go_To_Zero_To_Start_Sentry)
+  if(Control_Config_Data.Is_Go_To_Zero_To_Start_Sentry)
   {
     //Yaw 不会一进哨兵就开始扫，而是先归到哨兵扫描中心 0°。
     if(Sentry_Target_Is_In_Transition())
@@ -1027,17 +940,18 @@ float Angle_Target_Sentry_Gimbal_Yaw(void)
   {
     //从当前开始计时 直接从当前位置进入哨兵
     float Target_Time = (Task_Time - Sentry_Target_Entry_Time) * 0.001f;   // Task_Time单位是1ms，这里转成秒
+    float sentry_entry_yaw_wrapped = MyMath_Wrap_To_180(Sentry_Target_Entry_Yaw);
 
     //返回正弦函数模式目标值
     //Yaw 扫描幅值 = min(原始幅值, 距离左右限位的剩余空间)
-    if(Gimbal_Yaw_Target_High - Sentry_Target_Entry_Yaw < Yaw_A)
+    if(Gimbal_Yaw_Target_High - sentry_entry_yaw_wrapped < Yaw_A)
     {
-      Yaw_A = Gimbal_Yaw_Target_High - Sentry_Target_Entry_Yaw;
+      Yaw_A = Gimbal_Yaw_Target_High - sentry_entry_yaw_wrapped;
     }
 
-    if(Sentry_Target_Entry_Yaw - Gimbal_Yaw_Target_Low  < Yaw_A)
+    if(sentry_entry_yaw_wrapped - Gimbal_Yaw_Target_Low  < Yaw_A)
     {
-      Yaw_A = Sentry_Target_Entry_Yaw - Gimbal_Yaw_Target_Low;
+      Yaw_A = sentry_entry_yaw_wrapped - Gimbal_Yaw_Target_Low;
     }
 
     if(Yaw_A < 0.0f)
@@ -1059,15 +973,15 @@ float Angle_Target_Sentry_Gimbal_Yaw(void)
 float Angle_Target_Sentry_Gimbal_Pitch(void)
 {
   //阶跃控制模式
-  if(Temp_Control_Data.Pitch_Is_Trigonometric_Target_Mode == false)
+  if(Control_Config_Data.Pitch_Is_Trigonometric_Target_Mode == false)
   {
     //返回阶跃模式目标值
-    return Temp_Control_Data.Pitch_Step_Target;
+    return Control_Config_Data.Pitch_Step_Target;
   }
 
   //Pitch_Is_Trigonometric_Target_Mode是True
   //正常哨兵模式
-  if(Temp_Control_Data.Is_Go_To_Zero_To_Start_Sentry)
+  if(Control_Config_Data.Is_Go_To_Zero_To_Start_Sentry)
   {
     //Pitch 不会一进哨兵就开始扫，而是先归到哨兵扫描中心 0°。
     if(Sentry_Target_Is_In_Transition())
@@ -1078,8 +992,8 @@ float Angle_Target_Sentry_Gimbal_Pitch(void)
 
   float Target_Time = (Task_Time - Sentry_Target_Entry_Time) * 0.001f;   // Task_Time单位是1ms，这里转成秒
 
-  float Pitch_A = Temp_Control_Data.Pitch_a;             // 扫描幅值：±38°
-  float Pitch_f = Temp_Control_Data.Pitch_f;             // 频率 0.12Hz，对应周期约 8.33s
+  float Pitch_A = Control_Config_Data.Pitch_a;             // 扫描幅值：±38°
+  float Pitch_f = Control_Config_Data.Pitch_f;             // 频率 0.12Hz，对应周期约 8.33s
   float phase = PI / 2.0f;             // 加一个相位差，避免和Yaw完全同步
 
   float sentry_target = Pitch_A * sinf(2.0f * PI * Pitch_f * Target_Time + phase);
@@ -1099,15 +1013,15 @@ float Speed_Target_Sentry(void)
 {
   // float f = 0.00025;//频率 = 周期倒数
   // return 5.0f * sinf(2.0f * PI * f * target_set_time);//返回sin变化的目标值
-  uint32_t time_in_period = target_set_time % Temp_Control_Data.speed_period_ms;
+  uint32_t time_in_period = target_set_time % Control_Config_Data.speed_period_ms;
 
-  if (time_in_period < (Temp_Control_Data.speed_period_ms / 2U))
+  if (time_in_period < (Control_Config_Data.speed_period_ms / 2U))
   {
-      return Temp_Control_Data.speed_amplitude;   // 前半周期输出 +5
+      return Control_Config_Data.speed_amplitude;   // 前半周期输出 +5
   }
   else
   {
-     return -Temp_Control_Data.speed_amplitude;  // 后半周期输出 -5
+     return -Control_Config_Data.speed_amplitude;  // 后半周期输出 -5
   }
 }
 
@@ -1118,16 +1032,16 @@ float Speed_Target_Sentry(void)
  */
 float Speed_Target_Sentry_Pitch(void)
 {
-  static float temp = 0.5f;   // 初始先给一个方向，也可以写成 Temp_Control_Data.speed_amplitude
+  static float temp = 0.5f;   // 初始先给一个方向，也可以写成 Control_Config_Data.speed_amplitude
   float current_angle = PID_Gimbal_Motor_Pitch.Angle_States.Current;
 
   if (current_angle < -38.0f)
   {
-    temp = Temp_Control_Data.speed_amplitude;
+    temp = Control_Config_Data.speed_amplitude;
   }
   else if (current_angle > 38.0f)
   {
-    temp = -Temp_Control_Data.speed_amplitude;
+    temp = -Control_Config_Data.speed_amplitude;
   }
 
   return temp;
@@ -1143,15 +1057,15 @@ float Angle_Target_Sentry(void)
   // float f = 0.00025;//频率 = 周期倒数
   // return 60.0f * sinf(2.0f * PI * f * target_set_time);//返回-60到+60
 
-  uint32_t time_in_period = target_set_time % Temp_Control_Data.angle_period_ms;
+  uint32_t time_in_period = target_set_time % Control_Config_Data.angle_period_ms;
 
-  if (time_in_period < (Temp_Control_Data.angle_period_ms / 2U))
+  if (time_in_period < (Control_Config_Data.angle_period_ms / 2U))
   {
-      return Temp_Control_Data.angle_amplitude;   // 前半周期输出 +5
+      return Control_Config_Data.angle_amplitude;   // 前半周期输出 +5
   }
   else
   {
-     return -Temp_Control_Data.angle_amplitude;  // 后半周期输出 -5
+     return -Control_Config_Data.angle_amplitude;  // 后半周期输出 -5
   }
 }
 
@@ -1167,11 +1081,11 @@ float Angle_Target_Sentry_Pitch(void)
 
   if (current_angle < -38.0f)
   {
-    temp = Temp_Control_Data.angle_amplitude;
+    temp = Control_Config_Data.angle_amplitude;
   }
   else if (current_angle > 38.0f)
   {
-    temp = -Temp_Control_Data.angle_amplitude;
+    temp = -Control_Config_Data.angle_amplitude;
   }
 
   return temp;
@@ -1183,8 +1097,14 @@ float Angle_Target_Sentry_Pitch(void)
  */
 void Set_Yaw_and_Pitch_Motor_Target_Sentry(void)
 {
-  PID_Gimbal_Motor_Yaw.Set_Angle_Target(PID_Gimbal_Motor_Yaw.Limit(Angle_Target_Sentry_Gimbal_Yaw(), 
-                                                                           Gimbal_Yaw_Target_Low, Gimbal_Yaw_Target_High));
+  float current_continuous_yaw = Gimbal.Get_Imu_Relative_World_Continuous_Yaw();
+  float yaw_turn_base = Gimbal_Task_Get_Turn_Base(current_continuous_yaw);
+  float yaw_target_low = yaw_turn_base + Gimbal_Yaw_Target_Low;
+  float yaw_target_high = yaw_turn_base + Gimbal_Yaw_Target_High;
+
+  PID_Gimbal_Motor_Yaw.Set_Angle_Target(PID_Gimbal_Motor_Yaw.Limit(Angle_Target_Sentry_Gimbal_Yaw(),
+                                                                   yaw_target_low,
+                                                                   yaw_target_high));
   //PID_Gimbal_Motor_Yaw.Set_Angle_Target(Angle_Target_Sentry());
   //PID_Gimbal_Motor_Yaw.Set_Speed_Target(Speed_Target_Sentry());
 
@@ -1205,54 +1125,7 @@ void Set_Yaw_and_Pitch_Motor_Speed_Target_Sentry(void)
   PID_Gimbal_Motor_Pitch.Set_Speed_Target(Speed_Target_Sentry_Pitch());
 }
 
-/* PID 当前参数传入相关 ------------------------------------------------------*/
-
-/**
- * @brief Yaw电机设置角度和速度当前值
- * 
- * @param Angle 
- * @param Speed 
- */
-void Set_Yaw_Current_Angle_and_Speed(float Angle,float Speed)
-{
-  PID_Gimbal_Motor_Yaw.Set_Current_Angle(Angle);
-  PID_Gimbal_Motor_Yaw.Set_Current_Speed(Speed);
-}
-
-/**
- * @brief Pitch电机设置角度和速度当前值
- * 
- * @param Angle 
- * @param Speed 
- */
-void Set_Pitch_Current_Angle_and_Speed(float Angle,float Speed)
-{
-  PID_Gimbal_Motor_Pitch.Set_Current_Angle(Angle);
-  PID_Gimbal_Motor_Pitch.Set_Current_Speed(Speed);
-}
-
-/**
- * @brief 云台推送电机数据给PID类
- * 
- */
-void Gimbal_Push_Motor_Current_Speed_To_PID(void)
-{
-  PID_Gimbal_Motor_Yaw.Set_Current_Speed(DJI_Motor_Yaw.Get_AngleSpeed());
-  PID_Gimbal_Motor_Pitch.Set_Current_Speed(DJI_Motor_Pitch.Get_AngleSpeed());
-}
-
-/**
- * @brief 云台推送云台前向轴yaw和pitch给PID类
- * 
- * @param Pitch 
- * @param Yaw 
- */
-void Gimbal_Push_Gimbal_Pitch_and_Yaw_To_PID(float Pitch,float Yaw)
-{
-  PID_Gimbal_Motor_Pitch.Set_Current_Angle(Pitch);
-  PID_Gimbal_Motor_Yaw.Set_Current_Angle(Yaw);
-}
-
+/* PID 当前参数传入相关函数 ------------------------------------------------------*/
 /**
  * @brief 云台推送PID输出值至电机控制值
  * 
@@ -1281,8 +1154,8 @@ void Gimbal_Push_PID_Out_To_Motor_Control(void)
 
   if(is_g_feedback_mode)
   {
-    pitch_out = PID_Gimbal_Motor_Pitch.Get_Out() 
-                  + 0.6 * Pitch_Gravity_Compensation(Gimbal.Get_Imu_Relative_World_Continuous_Pitch());
+    pitch_out = PID_Gimbal_Motor_Pitch.Get_Out()
+     + 0.6 * Pitch_Gravity_Compensation(Gimbal.Get_Imu_Relative_World_Continuous_Pitch());//重补力度
   }
   else
   {
@@ -1321,4 +1194,79 @@ void Gimbal_Vision_Mode_Judge_1ms(void)
       Need_Change_Mode = true;
     }
   }
+}
+
+/* Pitch重力补偿获取数据相关函数 ----------------------------------------------------------*/
+float Pitch_Gravity_Compensation(float pitch_deg)
+{
+    float theta = pitch_deg * PI / 180.0f;
+    return 1419.6f * sinf(theta + 0.661f) - 1032.5f;
+}
+
+/**
+ * @brief Pitch重力补偿数据采集目标函数
+ *        采用“阶梯式目标角 + 停留”的方式，方便在每个角度稳定后读取电流
+ *
+ * @return float 当前Pitch目标角（度）
+ */
+float Pitch_Target_Gravity_Collect(void)
+{
+  const float min_angle = -40.0f;        // 采集下限
+  const float max_angle =  40.0f;        // 采集上限
+  const float step_angle =  5.0f;        // 每次步进5度
+  const uint32_t hold_ms = 3500U;        // 每个角度停留2秒
+  const uint32_t stable_window_ms = 500U;// 最后0.5秒视为稳定采样窗口
+
+  static bool initialized = false;
+  static float target_angle = min_angle;
+  static int direction = 1;              // +1上扫，-1下扫
+  static uint32_t last_change_time = 0U;
+
+  if(initialized == false)
+  {
+    initialized = true;
+    target_angle = min_angle;
+    direction = 1;
+    last_change_time = Task_Time;
+  }
+
+  uint32_t elapsed = Task_Time - last_change_time;
+
+  /* 最后 stable_window_ms 时间作为稳定采样窗口 */
+  Gravity_Test_Stable_Window = (elapsed >= (hold_ms - stable_window_ms));
+
+  if(elapsed >= hold_ms)
+  {
+    last_change_time = Task_Time;
+    target_angle += direction * step_angle;
+
+    if(target_angle >= max_angle)
+    {
+      target_angle = max_angle;
+      direction = -1;
+    }
+    else if(target_angle <= min_angle)
+    {
+      target_angle = min_angle;
+      direction = 1;
+    }
+  }
+
+  Gravity_Test_Target_Pitch = target_angle;
+  Gravity_Test_Direction = direction;
+
+  return target_angle;
+}
+
+/**
+ * @brief Pitch重力补偿数据采集目标设置函数
+ *        Yaw锁定在当前角度，Pitch按阶梯目标运动
+ */
+void Set_Pitch_Motor_Target_Gravity_Collect(void)
+{
+  /* Yaw保持当前值不动，避免跟着乱跑 */
+  PID_Gimbal_Motor_Yaw.Set_Angle_Target(Gimbal.Get_Imu_Relative_World_Continuous_Yaw());
+
+  /* Pitch执行阶梯扫描 */
+  PID_Gimbal_Motor_Pitch.Set_Angle_Target(Pitch_Target_Gravity_Collect());
 }
