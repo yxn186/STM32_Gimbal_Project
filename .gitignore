@@ -28,6 +28,7 @@ Makefile
 .vscode/
 .idea/
 .settings/    # 如果希望共享 .settings 文件夹，请保留这一行
+.settings/**
 
 # 忽略其他临时文件和日志
 *.log
