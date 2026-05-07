@@ -91,7 +91,7 @@ bool is_lpf_mode = true;
 
 bool is_g_feedback_mode = true;
 
-float Gimbal_Normal_Kf_a_Yaw = 15.0f;
+float Gimbal_Normal_Kf_a_Yaw = 19.0f;
 float Gimbal_Normal_Kf_a_Pitch = 15.0f;
 float Gimbal_Aim_Kf_a_Yaw = 3.0f;
 float Gimbal_Aim_Kf_a_Pitch = 3.0f;
@@ -419,7 +419,7 @@ void Gimbal_Yaw_Motor_PID_Init(void)
   else
   {
     PID_Gimbal_Motor_Yaw.Kp_s = 1300;
-    PID_Gimbal_Motor_Yaw.Ki_s = 60;
+    PID_Gimbal_Motor_Yaw.Ki_s = 70;
     PID_Gimbal_Motor_Yaw.Kd_s = 0;
     PID_Gimbal_Motor_Yaw.Kp_a = 0.35;
     PID_Gimbal_Motor_Yaw.Ki_a = 0.0001;
