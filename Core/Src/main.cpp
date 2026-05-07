@@ -28,7 +28,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "gimbal_task.h"
+#include "Gimbal_Task.h"
 #include "Serial.h"
 #include "mx_api.h"
 /* USER CODE END Includes */

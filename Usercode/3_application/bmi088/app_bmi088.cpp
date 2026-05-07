@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include "bmi088_math.h"
 #include "Serial.h"
-#include "gimbal_task.h"
+#include "Gimbal_Task.h"
 #include "MahonyAHRS.h"
 #include "MyMath.h"
 #include "cmsis_os2.h"

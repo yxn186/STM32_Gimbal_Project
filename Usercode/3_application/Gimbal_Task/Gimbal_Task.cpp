@@ -11,7 +11,7 @@
 #include "MahonyAHRS.h"
 #include "app_bmi088.h"
 #include "Serial.h"
-#include "gimbal_task.h"
+#include "Gimbal_Task.h"
 #include "usart.h"
 #include <cstdint>
 #include <stdbool.h>
