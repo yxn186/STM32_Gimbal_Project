@@ -148,6 +148,7 @@ gimtal_states_e last_gimtal_states = gimbal_states_aim_mode;
  */
 uint32_t target_set_time;
 
+
 /**
  * @brief 云台是否需要切换模式（哨兵/自瞄）
  * 
@@ -766,7 +767,7 @@ extern "C" void main_Task_1ms(void *argument)
     uint32_t loop_end_cyccnt = DWT_GetCYCCNT();
     Main_Task_Exec_Cycle = loop_end_cyccnt - loop_start_cyccnt;
     Main_Task_Exec_Us = DWT_Cycles_To_Us(Main_Task_Exec_Cycle);
-
+    
     next_tick += period_ticks;
     osDelayUntil(next_tick);
   }

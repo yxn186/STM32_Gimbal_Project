@@ -100,7 +100,7 @@ void bmi088_start(bmi088_handle_t *handle)
   HAL_Delay(5);
 
   //2-配置 ACC 的“输出频率 + 滤波 + 量程”
-  uint8_t Temp3[2] = {BMI088_ACC_CONF & BMI088_WRITE , BMI088_ACC_NORMAL | BMI088_ACC_200_HZ | BMI088_ACC_CONF_MUST_Set};
+  uint8_t Temp3[2] = {BMI088_ACC_CONF & BMI088_WRITE , BMI088_ACC_NORMAL | BMI088_ACC_1600_HZ | BMI088_ACC_CONF_MUST_Set};
   bmi088_acc_write_reg_blocking(handle,Temp3, 2);
 
   uint8_t Temp4[2] = {BMI088_ACC_RANGE & BMI088_WRITE , BMI088_ACC_RANGE_6G};
@@ -113,7 +113,7 @@ void bmi088_start(bmi088_handle_t *handle)
   uint8_t Temp6[2] = {BMI088_GYRO_RANGE & BMI088_WRITE , BMI088_GYRO_2000};
   bmi088_gyro_write_reg_blocking(handle,Temp6, 2);
 
-  uint8_t Temp7[2] = {BMI088_GYRO_BANDWIDTH & BMI088_WRITE , BMI088_GYRO_200_64_HZ | BMI088_GYRO_BANDWIDTH_MUST_Set};
+  uint8_t Temp7[2] = {BMI088_GYRO_BANDWIDTH & BMI088_WRITE , BMI088_GYRO_1000_116_HZ | BMI088_GYRO_BANDWIDTH_MUST_Set};
   bmi088_gyro_write_reg_blocking(handle,Temp7, 2);
 
   //待加int1和3 然后是处理数据 最好先完善下笔记流程
